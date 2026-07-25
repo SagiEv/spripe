@@ -789,6 +789,12 @@ class TimelineWidget(QWidget):
 
     def advance_frame(self):
         """advance_frame method."""
+        from PyQt6.QtWidgets import QApplication
+        QApplication.processEvents()
+
+        if not self.is_playing:
+            return
+
         if not self.frames:
             self.stop_anim()
             return

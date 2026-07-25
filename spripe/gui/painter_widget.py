@@ -157,6 +157,19 @@ class CanvasView(QGraphicsView):
 
     def load_image(self, path):
         """load_image method."""
+        if not path or not os.path.exists(path):
+            return
+
+        new_pixmap = QPixmap(path)
+
+        # Fast path for animation playback (same size)
+        if self.pixmap_item and self.original_pixmap and new_pixmap.size() == self.original_pixmap.size():
+            self.image_path = path
+            self.original_pixmap = new_pixmap
+            self.pixmap_item.setPixmap(self.original_pixmap)
+            self.clear_selection()
+            return
+
         # Preserve pinned keyframe state
         pinned_path = getattr(self, "_current_pinned_path", None)
         pinned_opacity = self.pinned_overlay.opacity() if self.pinned_overlay else 0.4
@@ -170,11 +183,8 @@ class CanvasView(QGraphicsView):
         self.original_pixmap = None
         self.pinned_overlay = None
 
-        if not path or not os.path.exists(path):
-            return
-
         self.image_path = path
-        self.original_pixmap = QPixmap(path)
+        self.original_pixmap = new_pixmap
         self.pixmap_item = self.scene.addPixmap(self.original_pixmap)
 
         self.selection_overlay = self.scene.addPixmap(

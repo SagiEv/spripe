@@ -156,6 +156,8 @@ class CanvasView(QGraphicsView):
         if pinned_path:
             self.load_pinned_keyframe(pinned_path, pinned_opacity)
 
+        self.setFocus()
+
     def resizeEvent(self, event):
         """resizeEvent method."""
         super().resizeEvent(event)
@@ -201,6 +203,10 @@ class CanvasView(QGraphicsView):
     def mousePressEvent(self, event):
         """mousePressEvent method."""
         if not self.pixmap_item:
+            return
+
+        if self.dragMode() == QGraphicsView.DragMode.ScrollHandDrag and event.button() == Qt.MouseButton.LeftButton:
+            super().mousePressEvent(event)
             return
 
         if event.button() == Qt.MouseButton.MiddleButton:
@@ -325,6 +331,9 @@ class CanvasView(QGraphicsView):
 
     def mouseReleaseEvent(self, event):
         """mouseReleaseEvent method."""
+        if self.dragMode() == QGraphicsView.DragMode.ScrollHandDrag and event.button() == Qt.MouseButton.LeftButton:
+            super().mouseReleaseEvent(event)
+            return
         if event.button() == Qt.MouseButton.MiddleButton:
             self.setDragMode(QGraphicsView.DragMode.NoDrag)
             self.update_cursor()
@@ -527,7 +536,9 @@ class CanvasView(QGraphicsView):
 
     def keyPressEvent(self, event):
         """keyPressEvent method."""
-        if event.key() == Qt.Key.Key_Delete or event.key() == Qt.Key.Key_Backspace:
+        if event.key() == Qt.Key.Key_Space and not event.isAutoRepeat():
+            self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
+        elif event.key() == Qt.Key.Key_Delete or event.key() == Qt.Key.Key_Backspace:
             # If drawing a polygon, delete the last point
             if (
                 self.drawing
@@ -744,6 +755,14 @@ class CanvasView(QGraphicsView):
         else:
             self.setCursor(Qt.CursorShape.CrossCursor)
 
+    def keyReleaseEvent(self, event):
+        """keyReleaseEvent method."""
+        if event.key() == Qt.Key.Key_Space and not event.isAutoRepeat():
+            self.setDragMode(QGraphicsView.DragMode.NoDrag)
+            self.update_cursor()
+        else:
+            super().keyReleaseEvent(event)
+
 
 class PainterWidget(QWidget):
     """PainterWidget class."""
@@ -845,19 +864,24 @@ class PainterWidget(QWidget):
             ],
             tool_btns,
         ):
+            btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
             btn.clicked.connect(lambda checked, n=name: self.set_tool(n))
             toolbar.addWidget(btn)
+
+        self.btn_clear_sel.setFocusPolicy(Qt.FocusPolicy.NoFocus)
 
         toolbar.addWidget(self.btn_clear_sel)
 
         # Soft Brush Toggle
         self.chk_soft = QCheckBox("Soft")
+        self.chk_soft.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.chk_soft.stateChanged.connect(self.toggle_soft_brush)
         toolbar.addWidget(self.chk_soft)
 
         self.btn_color = QPushButton("")
         self.btn_color.setFixedSize(30, 30)
         self.btn_color.setToolTip("Current Color")
+        self.btn_color.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.btn_color.clicked.connect(self.pick_color)
         toolbar.addWidget(self.btn_color)
 
@@ -867,6 +891,7 @@ class PainterWidget(QWidget):
         self.slider_size.setRange(1, 150)
         self.slider_size.setValue(10)
         self.slider_size.setFixedWidth(100)
+        self.slider_size.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.slider_size.valueChanged.connect(self.change_size)
         toolbar.addWidget(self.slider_size)
 
@@ -881,6 +906,7 @@ class PainterWidget(QWidget):
         self.slider_smooth.setRange(0, 15)
         self.slider_smooth.setValue(0)
         self.slider_smooth.setFixedWidth(80)
+        self.slider_smooth.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.slider_smooth.valueChanged.connect(self.apply_smoothing)
         smooth_layout.addWidget(self.slider_smooth)
         self.smooth_toolbar.hide()
@@ -894,6 +920,7 @@ class PainterWidget(QWidget):
         self.chk_onion = QCheckBox("📌 Onion:")
         default_onion_visible = self.settings_manager.get("onion_visible_default", True)
         self.chk_onion.setChecked(default_onion_visible)
+        self.chk_onion.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.chk_onion.toggled.connect(self.update_onion_opacity)
         onion_layout.addWidget(self.chk_onion)
 
@@ -903,6 +930,7 @@ class PainterWidget(QWidget):
             self.settings_manager.get("onion_opacity_default", 40)
         )
         self.slider_onion.setFixedWidth(80)
+        self.slider_onion.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.slider_onion.valueChanged.connect(self.update_onion_opacity)
         onion_layout.addWidget(self.slider_onion)
 
@@ -911,6 +939,7 @@ class PainterWidget(QWidget):
 
         self.btn_cancel = QPushButton("Cancel")
         self.btn_cancel.setIcon(self.get_icon("cancel"))
+        self.btn_cancel.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.btn_cancel.clicked.connect(self.cancel_edits)
         self.btn_cancel.setEnabled(False)
         toolbar.addWidget(self.btn_cancel)
@@ -918,6 +947,7 @@ class PainterWidget(QWidget):
         self.btn_save = QPushButton("Save")
         self.btn_save.setIcon(self.get_icon("save"))
         self.btn_save.setObjectName("primaryAction")
+        self.btn_save.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.btn_save.clicked.connect(self.save_frame)
         self.btn_save.setEnabled(False)
         toolbar.addWidget(self.btn_save)
@@ -927,6 +957,27 @@ class PainterWidget(QWidget):
 
         self.shortcut_save = QShortcut(QKeySequence("Ctrl+S"), self)
         self.shortcut_save.activated.connect(self.save_frame)
+
+        # Tool shortcuts
+        self.shortcut_brush = QShortcut(QKeySequence("B"), self)
+        self.shortcut_brush.activated.connect(lambda: self.set_tool("brush"))
+        self.shortcut_eraser = QShortcut(QKeySequence("E"), self)
+        self.shortcut_eraser.activated.connect(lambda: self.set_tool("eraser"))
+        self.shortcut_eyedropper = QShortcut(QKeySequence("I"), self)
+        self.shortcut_eyedropper.activated.connect(lambda: self.set_tool("eyedropper"))
+        self.shortcut_lasso = QShortcut(QKeySequence("L"), self)
+        self.shortcut_lasso.activated.connect(lambda: self.set_tool("lasso"))
+        self.shortcut_poly_lasso = QShortcut(QKeySequence("Shift+L"), self)
+        self.shortcut_poly_lasso.activated.connect(lambda: self.set_tool("poly_lasso"))
+        self.shortcut_magic_wand = QShortcut(QKeySequence("W"), self)
+        self.shortcut_magic_wand.activated.connect(lambda: self.set_tool("magic_wand"))
+        self.shortcut_grabcut = QShortcut(QKeySequence("Q"), self)
+        self.shortcut_grabcut.activated.connect(lambda: self.set_tool("grabcut"))
+
+        self.shortcut_deselect = QShortcut(QKeySequence("Ctrl+D"), self)
+        self.shortcut_deselect.activated.connect(self.clear_selection)
+        self.shortcut_esc = QShortcut(QKeySequence("Esc"), self)
+        self.shortcut_esc.activated.connect(self.clear_selection)
 
         layout.addLayout(toolbar)
 

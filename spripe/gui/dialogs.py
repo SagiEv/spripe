@@ -871,6 +871,7 @@ class TutorialsDialog(QDialog):
         self.sections = [
             {"title": "Welcome", "file": "index.md"},
             {"title": "User Tutorial", "file": "user/tutorial.md"},
+            {"title": "Keyboard Shortcuts", "file": "user/shortcuts.md"},
             {"title": "Architecture", "file": "dev/architecture.md"},
             {"title": "Core Services", "file": "dev/core_services.md"},
             {"title": "Data Model", "file": "dev/data_model.md"},

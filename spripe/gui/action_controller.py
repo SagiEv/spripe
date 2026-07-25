@@ -12,6 +12,8 @@ from spripe.gui.dialogs import (
     ImportProjectDialog,
     ImportAssetDialog,
     DeleteConfirmationDialog,
+    AboutDialog,
+    TutorialsDialog,
 )
 from spripe.scripts.normalize_animations import normalize_asset
 
@@ -27,6 +29,16 @@ class ActionController:
         QMessageBox.information(
             self.mw, "Coming Soon", "This feature is not yet implemented."
         )
+
+    def show_about(self):
+        """show_about method."""
+        dlg = AboutDialog(self.mw)
+        dlg.exec()
+
+    def show_tutorials(self):
+        """show_tutorials method."""
+        dlg = TutorialsDialog(self.mw)
+        dlg.exec()
 
     def show_settings(self):
         """show_settings method."""

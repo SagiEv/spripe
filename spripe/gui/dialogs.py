@@ -23,8 +23,11 @@ from PyQt6.QtWidgets import (
     QWidget,
     QPlainTextEdit,
     QStackedWidget,
+    QTextBrowser,
+    QSplitter,
 )
-from PyQt6.QtCore import Qt, QSize
+from PyQt6.QtCore import Qt, QSize, QUrl
+from PyQt6.QtGui import QPixmap, QIcon, QDesktopServices
 
 
 class SettingsDialog(QDialog):
@@ -783,3 +786,186 @@ class TemplateEditorDialog(QDialog):
                 QMessageBox.warning(self, "Invalid JSON", "Could not parse JSON.")
                 return
         self.accept()
+
+class AboutDialog(QDialog):
+    """AboutDialog class."""
+    def __init__(self, parent=None):
+        """__init__ method."""
+        super().__init__(parent)
+        self.setWindowTitle("About Spripe")
+        self.setFixedSize(400, 300)
+        self.init_ui()
+
+    def init_ui(self):
+        """init_ui method."""
+        layout = QVBoxLayout(self)
+        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        # Logo
+        logo_label = QLabel()
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(
+            os.path.abspath(__file__))))
+        logo_path = os.path.join(base_dir, "logo.png")
+        if os.path.exists(logo_path):
+            pixmap = QPixmap(logo_path)
+            pixmap = pixmap.scaled(
+                150, 150,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation
+            )
+            logo_label.setPixmap(pixmap)
+        else:
+            logo_label.setText("Spripe")
+            logo_label.setStyleSheet("font-size: 24px; font-weight: bold;")
+        
+        logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(logo_label)
+
+        # App Name and version
+        title_label = QLabel("Spripe v1.0.0")
+        title_label.setStyleSheet("font-size: 18px; font-weight: bold;")
+        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(title_label)
+
+        # Description
+        desc_label = QLabel(
+            "An Open-Source AI-Powered Asset & Sprite Generation Pipeline."
+        )
+        desc_label.setWordWrap(True)
+        desc_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(desc_label)
+
+        # Repo link
+        link_label = QLabel(
+            '<a href="https://github.com/SagiEv/spripe">https://github.com/SagiEv/spripe</a>'
+        )
+        link_label.setOpenExternalLinks(True)
+        link_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(link_label)
+
+        layout.addSpacing(10)
+
+        # Close button
+        btn_close = QPushButton("Close")
+        btn_close.setFixedWidth(100)
+        btn_close.clicked.connect(self.accept)
+        
+        btn_layout = QHBoxLayout()
+        btn_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        btn_layout.addWidget(btn_close)
+        
+        layout.addLayout(btn_layout)
+
+class TutorialsDialog(QDialog):
+    """TutorialsDialog class."""
+    def __init__(self, parent=None):
+        """__init__ method."""
+        super().__init__(parent)
+        self.setWindowTitle("Tutorials & Documentation")
+        self.resize(800, 600)
+
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(
+            os.path.abspath(__file__))))
+        self.docs_dir = os.path.join(base_dir, "docs")
+
+        self.sections = [
+            {"title": "Welcome", "file": "index.md"},
+            {"title": "User Tutorial", "file": "user/tutorial.md"},
+            {"title": "Architecture", "file": "dev/architecture.md"},
+            {"title": "Core Services", "file": "dev/core_services.md"},
+            {"title": "Data Model", "file": "dev/data_model.md"},
+            {"title": "GUI Components", "file": "dev/gui_components.md"}
+        ]
+        self.current_index = 0
+
+        self.init_ui()
+        self.load_section(0)
+
+    def init_ui(self):
+        """init_ui method."""
+        main_layout = QVBoxLayout(self)
+
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+
+        # Left list
+        self.list_widget = QListWidget()
+        for sec in self.sections:
+            self.list_widget.addItem(sec["title"])
+        self.list_widget.currentRowChanged.connect(self.on_row_changed)
+        splitter.addWidget(self.list_widget)
+
+        # Right browser
+        self.text_browser = QTextBrowser()
+        self.text_browser.setOpenExternalLinks(False)
+        self.text_browser.setOpenLinks(False)
+        self.text_browser.anchorClicked.connect(self.on_anchor_clicked)
+        self.text_browser.setSearchPaths([self.docs_dir])
+        splitter.addWidget(self.text_browser)
+
+        splitter.setStretchFactor(0, 1)
+        splitter.setStretchFactor(1, 4)
+
+        main_layout.addWidget(splitter)
+
+        # Bottom navigation
+        nav_layout = QHBoxLayout()
+        self.btn_prev = QPushButton("Previous")
+        self.btn_prev.clicked.connect(self.go_prev)
+        self.btn_next = QPushButton("Next")
+        self.btn_next.clicked.connect(self.go_next)
+        
+        btn_close = QPushButton("Close")
+        btn_close.clicked.connect(self.accept)
+
+        nav_layout.addWidget(self.btn_prev)
+        nav_layout.addWidget(self.btn_next)
+        nav_layout.addStretch()
+        nav_layout.addWidget(btn_close)
+
+        main_layout.addLayout(nav_layout)
+
+    def on_row_changed(self, row):
+        """on_row_changed method."""
+        if row >= 0 and row != self.current_index:
+            self.load_section(row)
+
+    def on_anchor_clicked(self, url):
+        """on_anchor_clicked method."""
+        file_path = url.toString()
+        for i, sec in enumerate(self.sections):
+            if sec["file"] == file_path:
+                self.load_section(i)
+                return
+        
+        if file_path.startswith("http"):
+            QDesktopServices.openUrl(url)
+
+    def load_section(self, index):
+        """load_section method."""
+        if 0 <= index < len(self.sections):
+            self.current_index = index
+            
+            # Temporarily disconnect to prevent re-triggering
+            self.list_widget.blockSignals(True)
+            self.list_widget.setCurrentRow(index)
+            self.list_widget.blockSignals(False)
+
+            file_path = os.path.join(self.docs_dir, self.sections[index]["file"])
+            if os.path.exists(file_path):
+                with open(file_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+                self.text_browser.setMarkdown(content)
+            else:
+                self.text_browser.setPlainText(f"Could not find document at:\n{file_path}")
+
+            # Update buttons
+            self.btn_prev.setEnabled(index > 0)
+            self.btn_next.setEnabled(index < len(self.sections) - 1)
+
+    def go_prev(self):
+        """go_prev method."""
+        self.load_section(self.current_index - 1)
+
+    def go_next(self):
+        """go_next method."""
+        self.load_section(self.current_index + 1)

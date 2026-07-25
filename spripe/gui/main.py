@@ -309,8 +309,12 @@ class AssetPipelineApp(QMainWindow):
         # --- Help Menu ---
         help_menu = menubar.addMenu("Help")
 
+        tutorials_action = QAction("Tutorials / Documentation", self)
+        tutorials_action.triggered.connect(self.action_controller.show_tutorials)
+        help_menu.addAction(tutorials_action)
+
         about_action = QAction("About", self)
-        about_action.triggered.connect(self.action_controller.placeholder_action)
+        about_action.triggered.connect(self.action_controller.show_about)
         help_menu.addAction(about_action)
 
     def populate_recent_projects(self):

@@ -36,10 +36,11 @@ QPushButton#primaryAction:hover {
     background-color: #3B82F6;
 }
 
-QListWidget, QTreeWidget, QScrollArea, QGraphicsView, QTableWidget {
+QListWidget, QTreeWidget, QScrollArea, QGraphicsView, QTableWidget, QTextBrowser, QPlainTextEdit, QTextEdit {
     background-color: #1E1E1E;
     border: 1px solid #333333;
     border-radius: 8px;
+    color: #E0E0E0;
 }
 
 QListWidget, QTreeWidget, QTableWidget {

@@ -817,7 +817,7 @@ class AboutDialog(QDialog):
         else:
             logo_label.setText("Spripe")
             logo_label.setStyleSheet("font-size: 24px; font-weight: bold;")
-        
+
         logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(logo_label)
 
@@ -849,11 +849,11 @@ class AboutDialog(QDialog):
         btn_close = QPushButton("Close")
         btn_close.setFixedWidth(100)
         btn_close.clicked.connect(self.accept)
-        
+
         btn_layout = QHBoxLayout()
         btn_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         btn_layout.addWidget(btn_close)
-        
+
         layout.addLayout(btn_layout)
 
 class TutorialsDialog(QDialog):
@@ -913,7 +913,7 @@ class TutorialsDialog(QDialog):
         self.btn_prev.clicked.connect(self.go_prev)
         self.btn_next = QPushButton("Next")
         self.btn_next.clicked.connect(self.go_next)
-        
+
         btn_close = QPushButton("Close")
         btn_close.clicked.connect(self.accept)
 
@@ -936,7 +936,7 @@ class TutorialsDialog(QDialog):
             if sec["file"] == file_path:
                 self.load_section(i)
                 return
-        
+
         if file_path.startswith("http"):
             QDesktopServices.openUrl(url)
 
@@ -944,7 +944,7 @@ class TutorialsDialog(QDialog):
         """load_section method."""
         if 0 <= index < len(self.sections):
             self.current_index = index
-            
+
             # Temporarily disconnect to prevent re-triggering
             self.list_widget.blockSignals(True)
             self.list_widget.setCurrentRow(index)

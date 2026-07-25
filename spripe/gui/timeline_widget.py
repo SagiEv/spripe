@@ -3,6 +3,7 @@ Module docstring.
 """
 import os
 import shutil
+import json
 from PyQt6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -14,8 +15,9 @@ from PyQt6.QtWidgets import (
     QMessageBox,
     QStackedWidget,
     QGraphicsOpacityEffect,
+    QMenu,
 )
-from PyQt6.QtGui import QIcon, QPixmap, QImage
+from PyQt6.QtGui import QIcon, QPixmap, QImage, QPainter, QPen, QColor
 from PyQt6.QtCore import (
     Qt,
     QSize,
@@ -32,6 +34,7 @@ class CustomListWidget(QListWidget):
     """CustomListWidget class."""
     order_changed = pyqtSignal()
     delete_requested = pyqtSignal()
+    mark_to_fix_requested = pyqtSignal(bool)
 
     def __init__(self, parent=None):
         """__init__ method."""
@@ -91,6 +94,22 @@ class CustomListWidget(QListWidget):
             self.delete_requested.emit()
         else:
             super().keyPressEvent(event)
+
+    def contextMenuEvent(self, event):
+        """contextMenuEvent method."""
+        selected = self.selectedItems()
+        if not selected:
+            return
+
+        menu = QMenu(self)
+        mark_action = menu.addAction("Mark as 'To Fix'")
+        unmark_action = menu.addAction("Unmark 'To Fix'")
+
+        action = menu.exec(event.globalPos())
+        if action == mark_action:
+            self.mark_to_fix_requested.emit(True)
+        elif action == unmark_action:
+            self.mark_to_fix_requested.emit(False)
 
 
 class FrameLoaderThread(QThread):
@@ -238,6 +257,7 @@ class TimelineWidget(QWidget):
         self.list_widget.order_changed.connect(self.on_order_changed)
         self.list_widget.itemSelectionChanged.connect(self.on_selection_changed)
         self.list_widget.delete_requested.connect(self.delete_selected)
+        self.list_widget.mark_to_fix_requested.connect(self._on_mark_frames_requested)
 
         # Loading Overlay
         self.loading_widget = QWidget()
@@ -402,9 +422,20 @@ class TimelineWidget(QWidget):
     def on_frames_loaded(self, result):
         """on_frames_loaded method."""
         self.list_widget.blockSignals(True)
+        to_fix_list = set(self._load_to_fix_list())
+
         for f, file_path, img in result:
             self.frames.append(file_path)
             pixmap = QPixmap.fromImage(img)
+
+            if f in to_fix_list:
+                painter = QPainter(pixmap)
+                pen = QPen(QColor(255, 0, 0))
+                pen.setWidth(6)
+                painter.setPen(pen)
+                painter.drawRect(0, 0, pixmap.width() - 1, pixmap.height() - 1)
+                painter.end()
+
             item = QListWidgetItem(QIcon(pixmap), f)
             item.setData(Qt.ItemDataRole.UserRole, file_path)
             self.list_widget.addItem(item)
@@ -552,22 +583,98 @@ class TimelineWidget(QWidget):
             return
 
         self.stop_anim()
+
+        to_fix_list = set(self._load_to_fix_list())
+
         new_order_paths = []
         for i in range(self.list_widget.count()):
             item = self.list_widget.item(i)
             new_order_paths.append(item.data(Qt.ItemDataRole.UserRole))
 
         temp_paths = []
+        bad_temp_files = set()
         for i, old_path in enumerate(new_order_paths):
+            filename = os.path.basename(old_path)
             temp_path = os.path.join(self.current_folder, f"temp_{i}.png")
             os.rename(old_path, temp_path)
             temp_paths.append(temp_path)
+            if filename in to_fix_list:
+                bad_temp_files.add(temp_path)
 
+        new_bad_frames = []
         for i, temp_path in enumerate(temp_paths):
-            final_path = os.path.join(self.current_folder, f"{i:04d}.png")
+            final_filename = f"{i:04d}.png"
+            final_path = os.path.join(self.current_folder, final_filename)
             os.rename(temp_path, final_path)
+            if temp_path in bad_temp_files:
+                new_bad_frames.append(final_filename)
 
+        self._save_to_fix_list(new_bad_frames)
         self.refresh_timeline()
+
+    def _load_to_fix_list(self):
+        if not self.current_folder:
+            return []
+        path = os.path.join(self.current_folder, "to_fix.json")
+        if os.path.exists(path):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception:
+                pass
+        return []
+
+    def _save_to_fix_list(self, bad_frames):
+        if not self.current_folder:
+            return
+        path = os.path.join(self.current_folder, "to_fix.json")
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(bad_frames, f, indent=4)
+        except Exception:
+            pass
+
+    def _on_mark_frames_requested(self, is_bad):
+        selected = self.list_widget.selectedItems()
+        if not selected:
+            return
+
+        current_bad = set(self._load_to_fix_list())
+
+        changed = False
+        for item in selected:
+            file_path = item.data(Qt.ItemDataRole.UserRole)
+            filename = os.path.basename(file_path)
+            if is_bad:
+                if filename not in current_bad:
+                    current_bad.add(filename)
+                    changed = True
+            else:
+                if filename in current_bad:
+                    current_bad.remove(filename)
+                    changed = True
+
+        if changed:
+            self._save_to_fix_list(list(current_bad))
+
+            # Update icons in place without reloading all frames
+            for item in selected:
+                file_path = item.data(Qt.ItemDataRole.UserRole)
+                filename = os.path.basename(file_path)
+
+                # Reload clean image
+                img = QImage(file_path).scaled(100, 100, Qt.AspectRatioMode.KeepAspectRatio)
+                pixmap = QPixmap.fromImage(img)
+
+                if filename in current_bad:
+                    painter = QPainter(pixmap)
+                    pen = QPen(QColor(255, 0, 0))
+                    pen.setWidth(6)
+                    painter.setPen(pen)
+                    painter.drawRect(0, 0, pixmap.width() - 1, pixmap.height() - 1)
+                    painter.end()
+
+                item.setIcon(QIcon(pixmap))
 
     # --- Animation Player Methods ---
     def set_player_enabled(self, enabled):

@@ -18,6 +18,7 @@ from spripe.gui.dialogs import (
     CompressDialog,
     ExportGifDialog,
 )
+from spripe.gui.generation_dialog import GenerationDialog
 from spripe.scripts.normalize_animations import normalize_asset
 from spripe.scripts.compress_animations import compress_asset
 from spripe.core.history import Command, CommandContext
@@ -390,6 +391,43 @@ class ActionController:
                     self.mw, "Export Failed", f"An error occurred during export:\n{e}"
                 )
 
+    def make_png_sequence(self, proj_name, asset_name, anim_names):
+        """make_png_sequence method."""
+        fps = self.mw.settings_manager.get("png_sequence_fps", 12)
+        use_ai = True
+
+        from spripe.gui.sequence_worker import SequenceExtractionWorker
+
+        # Keep a reference to prevent garbage collection
+        if not hasattr(self, 'active_sequence_workers'):
+            self.active_sequence_workers = []
+
+        proj_path = self.mw.project_manager.get_project_path(proj_name)
+        worker = SequenceExtractionWorker(proj_path, asset_name, anim_names, fps, use_ai)
+
+        worker.progress_signal.connect(lambda msg: self.mw.statusBar().showMessage(msg, 5000))
+
+        def on_finished():
+            self.mw.statusBar().showMessage(f"PNG sequence extraction finished for {len(anim_names)} animation(s).", 5000)
+            self.mw.asset_dashboard.refresh_view()
+            if worker in self.active_sequence_workers:
+                self.active_sequence_workers.remove(worker)
+            QMessageBox.information(self.mw, "Extraction Complete", f"Successfully extracted PNG sequences for {len(anim_names)} animation(s).")
+
+        def on_error(err):
+            self.mw.statusBar().showMessage("PNG extraction error.", 5000)
+            QMessageBox.critical(self.mw, "Error", f"Failed to extract PNG sequence:\n{err}")
+            if worker in self.active_sequence_workers:
+                self.active_sequence_workers.remove(worker)
+
+        worker.finished_signal.connect(on_finished)
+        worker.error_signal.connect(on_error)
+
+        self.active_sequence_workers.append(worker)
+        worker.start()
+
+        self.mw.statusBar().showMessage(f"Starting PNG sequence extraction for {len(anim_names)} animation(s)...", 5000)
+
     def show_create_folder(self, proj_name):
         """show_create_folder method."""
         text, ok = QInputDialog.getText(
@@ -667,3 +705,14 @@ class ActionController:
                     "Export Failed",
                     f"An error occurred during GIF export:\n{e}",
                 )
+
+    def show_generation_dialog(self, metadata=None):
+        """show_generation_dialog method."""
+        if not self.mw.current_project:
+            QMessageBox.warning(self.mw, "No Project", "Please open a project first.")
+            return
+
+        proj_path = os.path.join(self.mw.project_manager.workspace_dir, self.mw.current_project)
+        workspace_dir = self.mw.project_manager.workspace_dir
+        dlg = GenerationDialog(proj_path, metadata, workspace_dir, self.mw)
+        dlg.exec()

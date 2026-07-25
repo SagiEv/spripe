@@ -50,7 +50,7 @@ class WorkspaceRegistry:
 
         # Auto-discover
         for item in self.workspace_dir.iterdir():
-            if item.is_dir() and item.name != "Standalone":
+            if item.is_dir() and item.name != "Standalone" and not item.name.startswith("."):
                 self.projects[item.name] = str(item)
 
     def save_registry(self) -> None:

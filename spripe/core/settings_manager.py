@@ -20,6 +20,7 @@ class SettingsManager:
             "theme": "dark",
             "recent_projects": [],
             "undo_limit": 10,
+            "png_sequence_fps": 12,
         }
         self.load_error = None
         try:

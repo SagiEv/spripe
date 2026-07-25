@@ -195,6 +195,9 @@ class AssetPipelineApp(QMainWindow):
         self.project_dashboard.asset_selected.connect(
             self.on_asset_selected_from_dashboard
         )
+        self.project_dashboard.action_generate_asset.connect(
+            self.action_controller.show_generation_dialog
+        )
 
         self.asset_dashboard = AssetDashboardWidget(self.project_manager)
         self.asset_dashboard.animation_selected.connect(
@@ -211,6 +214,12 @@ class AssetPipelineApp(QMainWindow):
         )
         self.asset_dashboard.action_export_gif.connect(
             self.action_controller.export_gif_animation
+        )
+        self.asset_dashboard.action_regenerate_media.connect(
+            self.action_controller.show_generation_dialog
+        )
+        self.asset_dashboard.action_make_png_sequence.connect(
+            self.action_controller.make_png_sequence
         )
 
         self.right_panel = QStackedWidget()
@@ -338,6 +347,13 @@ class AssetPipelineApp(QMainWindow):
         export_spritesheet = QAction("Generate Spritesheet", self)
         export_spritesheet.triggered.connect(self.action_controller.placeholder_action)
         export_menu.addAction(export_spritesheet)
+
+        # --- Tools Menu ---
+        tools_menu = menubar.addMenu("Tools")
+
+        generate_ai_action = QAction("Generate with AI...", self)
+        generate_ai_action.triggered.connect(self.action_controller.show_generation_dialog)
+        tools_menu.addAction(generate_ai_action)
 
         # --- Help Menu ---
         help_menu = menubar.addMenu("Help")

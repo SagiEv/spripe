@@ -78,7 +78,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--all",
         action="store_true",
-        help="Process all out_python_* directories in the current folder",
+        help="Process all out_* directories in the current folder",
     )
     args = parser.parse_args()
 
@@ -86,11 +86,11 @@ if __name__ == "__main__":
         base_dir = os.path.dirname(os.path.abspath(__file__))
         anim_dirs = [
             d
-            for d in glob.glob(os.path.join(base_dir, "raw_output", "out_python_*"))
+            for d in glob.glob(os.path.join(base_dir, "raw_output", "out_*"))
             if os.path.isdir(d)
         ]
         if not anim_dirs:
-            print("No out_python_* directories found.")
+            print("No out_* directories found.")
         for d in anim_dirs:
             rename_sequence(d)
     elif args.directory:

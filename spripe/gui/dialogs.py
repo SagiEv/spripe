@@ -27,6 +27,7 @@ from PyQt6.QtWidgets import (
     QStackedWidget,
     QTextBrowser,
     QSplitter,
+    QApplication,
 )
 from PyQt6.QtCore import Qt, QSize, QUrl
 from PyQt6.QtGui import QPixmap, QIcon, QDesktopServices
@@ -771,9 +772,11 @@ class TemplateEditorDialog(QDialog):
         tags_layout = QVBoxLayout(self.tags_widget)
         tags_layout.setContentsMargins(0, 0, 0, 0)
 
+        from PyQt6.QtWidgets import QListView
         self.list_tags = QListWidget()
-        self.list_tags.setViewMode(QListWidget.ViewMode.IconMode)
-        self.list_tags.setResizeMode(QListWidget.ResizeMode.Adjust)
+        self.list_tags.setFlow(QListView.Flow.LeftToRight)
+        self.list_tags.setWrapping(True)
+        self.list_tags.setResizeMode(QListView.ResizeMode.Adjust)
         self.list_tags.setSpacing(5)
         self.list_tags.setSelectionMode(QListWidget.SelectionMode.NoSelection)
         self.list_tags.setStyleSheet(
@@ -803,6 +806,17 @@ class TemplateEditorDialog(QDialog):
         raw_layout = QVBoxLayout(self.raw_widget)
         raw_layout.setContentsMargins(0, 0, 0, 0)
 
+        # Add copy/paste buttons
+        cb_layout = QHBoxLayout()
+        cb_layout.addStretch()
+        btn_copy = QPushButton("Copy")
+        btn_paste = QPushButton("Paste")
+        btn_copy.clicked.connect(self.on_copy_raw)
+        btn_paste.clicked.connect(self.on_paste_raw)
+        cb_layout.addWidget(btn_copy)
+        cb_layout.addWidget(btn_paste)
+        raw_layout.addLayout(cb_layout)
+
         self.text_raw = QPlainTextEdit()
         self.text_raw.setPlainText(json.dumps(self.template_lines, indent=4))
         raw_layout.addWidget(self.text_raw)
@@ -824,6 +838,16 @@ class TemplateEditorDialog(QDialog):
         btn_layout.addWidget(cancel_btn)
         main_layout.addLayout(btn_layout)
 
+    def on_copy_raw(self):
+        """Method docstring."""
+        QApplication.clipboard().setText(self.text_raw.toPlainText())
+
+    def on_paste_raw(self):
+        """Method docstring."""
+        text = QApplication.clipboard().text()
+        if text:
+            self.text_raw.setPlainText(text)
+
     def add_tag_to_list(self, text):
         """add_tag_to_list method."""
         item = QListWidgetItem()
@@ -841,14 +865,18 @@ class TemplateEditorDialog(QDialog):
         btn_del = QPushButton("✕")
         btn_del.setFixedSize(20, 20)
         btn_del.setStyleSheet(
-            "QPushButton { color: white; background-color: transparent; border: none; font-weight: bold; } QPushButton:hover { color: #ff5555; }"
+            "QPushButton { color: white; background-color: transparent; border: none; font-weight: bold; padding: 0px; margin: 0px; } "
+            "QPushButton:hover { color: #ff5555; }"
         )
         btn_del.clicked.connect(lambda _, item=item: self.remove_tag(item))
 
         layout.addWidget(lbl)
         layout.addWidget(btn_del)
 
-        # Size hint needs to match layout
+        # Size hint needs to match layout width so QListWidget doesn't clip it
+        fm = lbl.fontMetrics()
+        width = fm.horizontalAdvance(text) + 60  # text + margins + button padding
+        widget.setFixedSize(width, 32)
         item.setSizeHint(widget.sizeHint())
         self.list_tags.setItemWidget(item, widget)
 

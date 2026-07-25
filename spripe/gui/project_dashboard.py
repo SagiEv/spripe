@@ -13,16 +13,20 @@ from PyQt6.QtWidgets import (
     QMessageBox,
     QListWidgetItem,
     QMenu,
+    QSplitter,
+    QSizePolicy,
 )
 from PyQt6.QtCore import pyqtSignal, QSize, Qt
 from PyQt6.QtGui import QIcon
 import os
 
+from spripe.gui.prompts_widget import ProjectPromptsWidget
+
 
 class DraggableListWidget(QListWidget):
     """DraggableListWidget class."""
 
-    itemsMoved = pyqtSignal(list, object)
+    itemsMoved = pyqtSignal(list, QListWidgetItem)
 
     def dropEvent(self, event):
         """dropEvent method."""
@@ -43,10 +47,11 @@ class DraggableListWidget(QListWidget):
 
 
 class ProjectDashboardWidget(QWidget):
-    """ProjectDashboardWidget class."""
+    """Widget for the project dashboard."""
 
+    asset_selected = pyqtSignal(str, str)  # proj, asset
     metadata_updated = pyqtSignal()
-    asset_selected = pyqtSignal(str, str)
+    action_generate_asset = pyqtSignal(dict)  # metadata for generation
 
     def __init__(self, project_manager, parent=None):
         """__init__ method."""
@@ -85,6 +90,11 @@ class ProjectDashboardWidget(QWidget):
 
         layout.addLayout(btn_layout)
 
+        # Splitter to separate file system and prompts
+        self.splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.splitter.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        layout.addWidget(self.splitter, 1)
+
         self.file_system_view = DraggableListWidget()
         self.file_system_view.setViewMode(QListWidget.ViewMode.IconMode)
         self.file_system_view.setIconSize(QSize(64, 64))
@@ -101,7 +111,14 @@ class ProjectDashboardWidget(QWidget):
         self.file_system_view.customContextMenuRequested.connect(self.show_context_menu)
         self.file_system_view.itemsMoved.connect(self.on_items_moved)
         self.file_system_view.itemDoubleClicked.connect(self.on_item_double_clicked)
-        layout.addWidget(self.file_system_view)
+        self.splitter.addWidget(self.file_system_view)
+
+        # Right container (Prompts)
+        self.prompts_widget = ProjectPromptsWidget()
+        self.splitter.addWidget(self.prompts_widget)
+
+        self.splitter.setStretchFactor(0, 3)
+        self.splitter.setStretchFactor(1, 1)
 
     def load_project(self, project_name):
         """load_project method."""
@@ -117,6 +134,7 @@ class ProjectDashboardWidget(QWidget):
 
         self.header.setText(f"Project Dashboard: {project_name}{ext_label}")
         self.refresh_view()
+        self.prompts_widget.load_project(project_path, workspace_dir)
 
     def load_folder(self, project_name, folder_name):
         """load_folder method."""
@@ -211,8 +229,15 @@ class ProjectDashboardWidget(QWidget):
                     self.file_system_view.addItem(item)
 
     def on_generate_asset(self):
-        """on_generate_asset method."""
-        QMessageBox.information(self, "Coming Soon", "AI Video Generator placeholder.")
+        """Method docstring."""
+        if not self.current_project:
+            return
+        meta = {
+            "type": "Asset Design",
+            "template": "asset_design",
+            "folder": self.current_folder if self.current_folder else "(Root)"
+        }
+        self.action_generate_asset.emit(meta)
 
     def on_edit_template_clicked(self):
         """on_edit_template_clicked method."""
@@ -237,18 +262,16 @@ class ProjectDashboardWidget(QWidget):
         """on_create_folder method."""
         if not self.current_project:
             return
-        text, ok = QInputDialog.getText(self, "Create Virtual Folder", "Folder Name:")
-        if ok and text:
-            metadata = self.project_manager.get_project_metadata(self.current_project)
-            folders = metadata.get("folders", [])
-            if text not in folders:
-                folders.append(text)
-                metadata["folders"] = folders
-                self.project_manager.save_project_metadata(
-                    self.current_project, metadata
-                )
-                self.metadata_updated.emit()
-                self.refresh_view()
+
+        from PyQt6.QtWidgets import QInputDialog
+
+        name, ok = QInputDialog.getText(
+            self, "New Folder", "Folder Name (e.g. 'characters'):"
+        )
+        if ok and name:
+            self.project_manager.create_virtual_folder(self.current_project, name)
+            self.metadata_updated.emit()
+            self.refresh_view()
 
     def show_context_menu(self, position):
         """show_context_menu method."""

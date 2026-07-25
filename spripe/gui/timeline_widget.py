@@ -391,7 +391,7 @@ class TimelineWidget(QWidget):
         """load_animation method."""
         self.current_asset = anim_name
         self.current_asset_path = asset_path
-        raw_path = os.path.join(asset_path, "raw_output", f"out_python_{anim_name}")
+        raw_path = os.path.join(asset_path, "raw_output", f"out_{anim_name}")
         norm_path = os.path.join(
             asset_path, "normalized_output", f"normalized_{anim_name}"
         )
@@ -422,7 +422,7 @@ class TimelineWidget(QWidget):
         """load_asset method."""
         # Legacy fallback
         self.current_asset_path = os.path.join(self.base_dir, "Standalone", asset_name)
-        raw_path = os.path.join(self.base_dir, "raw_output", f"out_python_{asset_name}")
+        raw_path = os.path.join(self.base_dir, "raw_output", f"out_{asset_name}")
         norm_path = os.path.join(
             self.base_dir, "normalized_output", f"normalized_{asset_name}"
         )
@@ -560,7 +560,7 @@ class TimelineWidget(QWidget):
                     possible_raw = os.path.join(
                         self.current_asset_path,
                         "raw_output",
-                        f"out_python_{anim_name}",
+                        f"out_{anim_name}",
                         filename,
                     )
                     if os.path.exists(possible_raw):

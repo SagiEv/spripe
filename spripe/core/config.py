@@ -15,7 +15,7 @@ class Config:
     DIR_COMPRESSED_OUTPUT = "compressed_output"
 
     # Prefixes
-    PREFIX_RAW = "out_python_"
+    PREFIX_RAW = "out_"
     PREFIX_NORMALIZED = "normalized_"
     PREFIX_COMPRESSED = "compressed_"
 

@@ -180,12 +180,12 @@ class FileSystemService:
             self.registry.add_project(project_name, path)
             SignalManager.get_instance().project_created.emit(project_name)
             return str(path)
-        else:
-            path = self.registry.workspace_dir / project_name
-            path.mkdir(parents=True, exist_ok=True)
-            self.registry.add_project(project_name, path)
-            SignalManager.get_instance().project_created.emit(project_name)
-            return str(path)
+
+        path = self.registry.workspace_dir / project_name
+        path.mkdir(parents=True, exist_ok=True)
+        self.registry.add_project(project_name, path)
+        SignalManager.get_instance().project_created.emit(project_name)
+        return str(path)
 
     def create_asset(
         self, project_name: str, asset_name: str, external_path: Optional[str] = None

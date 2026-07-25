@@ -55,5 +55,8 @@ disable = [
     "wrong-import-order",
     "possibly-used-before-assignment",
     "f-string-without-interpolation",
-    "too-many-lines"
+    "too-many-lines",
+    "import-error",
+    "broad-exception-raised",
+    "too-many-positional-arguments"
 ]

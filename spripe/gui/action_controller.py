@@ -33,6 +33,7 @@ class ActionController:
         dlg = SettingsDialog(self.mw.settings_manager, self.mw)
         if dlg.exec():
             # Update workspace if changed
+            new_workspace = self.mw.settings_manager.get("workspace_dir")
             if self.mw.project_manager.workspace_dir != new_workspace:
                 self.mw.project_manager.set_workspace(new_workspace)
 

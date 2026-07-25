@@ -187,6 +187,12 @@ class AssetPipelineApp(QMainWindow):
         self.asset_dashboard.action_normalize_animation.connect(
             self.action_controller.renormalize_animation
         )
+        self.asset_dashboard.action_compress_animation.connect(
+            self.action_controller.compress_animation
+        )
+        self.asset_dashboard.action_export_gif.connect(
+            self.action_controller.export_gif_animation
+        )
 
         self.right_panel = QStackedWidget()
         self.right_panel.addWidget(self.project_dashboard)  # index 0

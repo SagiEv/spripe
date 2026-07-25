@@ -9,6 +9,8 @@ from typing import List, Dict, Optional, Set, Tuple
 
 from spripe.core.config import Config
 from spripe.core.signal_manager import SignalManager
+from spripe.scripts.compress_animations import compress_asset
+from spripe.scripts.export_gif import export_gif
 
 
 class WorkspaceRegistry:
@@ -153,6 +155,7 @@ class FileSystemService:
         videos_dir = asset_path / Config.DIR_VIDEOS
         raw_dir = asset_path / Config.DIR_RAW_OUTPUT
         norm_dir = asset_path / Config.DIR_NORMALIZED_OUTPUT
+        comp_dir = asset_path / Config.DIR_COMPRESSED_OUTPUT
 
         if videos_dir.exists():
             for f in videos_dir.iterdir():
@@ -168,6 +171,11 @@ class FileSystemService:
             for d in norm_dir.iterdir():
                 if d.name.startswith(Config.PREFIX_NORMALIZED):
                     animations.add(d.name[len(Config.PREFIX_NORMALIZED) :])
+
+        if comp_dir.exists():
+            for d in comp_dir.iterdir():
+                if d.name.startswith(Config.PREFIX_COMPRESSED):
+                    animations.add(d.name[len(Config.PREFIX_COMPRESSED) :])
 
         return list(animations)
 
@@ -208,6 +216,9 @@ class FileSystemService:
             (asset_path / Config.DIR_VIDEOS).mkdir(parents=True, exist_ok=True)
             (asset_path / Config.DIR_RAW_OUTPUT).mkdir(parents=True, exist_ok=True)
             (asset_path / Config.DIR_NORMALIZED_OUTPUT).mkdir(
+                parents=True, exist_ok=True
+            )
+            (asset_path / Config.DIR_COMPRESSED_OUTPUT).mkdir(
                 parents=True, exist_ok=True
             )
 
@@ -299,6 +310,9 @@ class FileSystemService:
             asset_path
             / Config.DIR_NORMALIZED_OUTPUT
             / f"{Config.PREFIX_NORMALIZED}{animation_name}",
+            asset_path
+            / Config.DIR_COMPRESSED_OUTPUT
+            / f"{Config.PREFIX_COMPRESSED}{animation_name}",
         ]
 
         try:
@@ -413,6 +427,8 @@ class FileSystemService:
         animation_name: str,
         dest_path: str,
         export_type: str,
+        compression_level: Optional[int] = None,
+        gif_fps: Optional[int] = None,
     ):
         """export_item method."""
         project_path = self.registry.get_project_path(project_name)
@@ -420,7 +436,13 @@ class FileSystemService:
 
         try:
             if animation_name and asset_name:
-                src_folder = (
+                comp_folder = (
+                    project_path
+                    / asset_name
+                    / Config.DIR_COMPRESSED_OUTPUT
+                    / f"{Config.PREFIX_COMPRESSED}{animation_name}"
+                )
+                norm_folder = (
                     project_path
                     / asset_name
                     / Config.DIR_NORMALIZED_OUTPUT
@@ -428,12 +450,34 @@ class FileSystemService:
                 )
                 export_name = f"{asset_name}_{animation_name}"
 
+                use_comp = compression_level is not None or (comp_folder.exists() and any(comp_folder.iterdir()))
+                src_folder = comp_folder if use_comp else norm_folder
+
+                if compression_level is not None:
+                    # Apply on the fly compression
+                    tmpdir = tempfile.mkdtemp()
+                    fake_asset = Path(tmpdir) / asset_name
+                    fake_norm = fake_asset / Config.DIR_NORMALIZED_OUTPUT / f"{Config.PREFIX_NORMALIZED}{animation_name}"
+                    fake_norm.mkdir(parents=True)
+                    for f in norm_folder.iterdir():
+                        if f.is_file():
+                            shutil.copy2(f, fake_norm / f.name)
+                    compress_asset(asset_dir=str(fake_asset), colors=compression_level, overwrite=True)
+                    src_folder = fake_asset / Config.DIR_COMPRESSED_OUTPUT / f"{Config.PREFIX_COMPRESSED}{animation_name}"
+                    if not src_folder.exists() or not any(src_folder.iterdir()):
+                        raise Exception("Compression failed during export.")
+
                 if not src_folder.exists() or not any(src_folder.iterdir()):
                     raise Exception(
-                        f"No normalized frames found for animation '{animation_name}'. Run 'Normalize Animations' first."
+                        f"No frames found for animation '{animation_name}'."
                     )
 
-                if export_type == "ZIP Archive":
+                if export_type == "GIF":
+                    final_dest = dest / f"{export_name}.gif"
+                    success = export_gif(str(src_folder), str(final_dest), fps=gif_fps or 30)
+                    if not success:
+                        raise Exception("GIF export failed.")
+                elif export_type == "ZIP Archive":
                     shutil.make_archive(str(dest / export_name), "zip", src_folder)
                 else:
                     final_dest = dest / export_name
@@ -452,16 +496,23 @@ class FileSystemService:
                         f"No normalized animations found in Asset '{asset_name}'."
                     )
 
+                def get_asset_source(anim):
+                    comp = project_path / asset_name / Config.DIR_COMPRESSED_OUTPUT / f"{Config.PREFIX_COMPRESSED}{anim}"
+                    if comp.exists() and any(comp.iterdir()):
+                        return comp, True
+                    return norm_output_dir / f"{Config.PREFIX_NORMALIZED}{anim}", False
+
                 if export_type == "ZIP Archive":
                     with tempfile.TemporaryDirectory() as tmpdir:
                         asset_tmp_dir = Path(tmpdir) / asset_name
                         asset_tmp_dir.mkdir()
                         for d in norm_output_dir.iterdir():
                             if d.name.startswith(Config.PREFIX_NORMALIZED):
+                                anim = d.name[len(Config.PREFIX_NORMALIZED):]
+                                src, _ = get_asset_source(anim)
                                 shutil.copytree(
-                                    d,
-                                    asset_tmp_dir
-                                    / d.name[len(Config.PREFIX_NORMALIZED) :],
+                                    src,
+                                    asset_tmp_dir / anim,
                                 )
                         shutil.make_archive(str(dest / export_name), "zip", tmpdir)
                 else:

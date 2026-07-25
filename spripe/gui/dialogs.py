@@ -18,6 +18,7 @@ from PyQt6.QtWidgets import (
     QColorDialog,
     QCheckBox,
     QSlider,
+    QSpinBox,
     QListWidget,
     QListWidgetItem,
     QWidget,
@@ -530,6 +531,100 @@ class DeleteConfirmationDialog(QDialog):
         """do_delete method."""
         self.delete_mode = "delete"
         self.accept()
+class CompressDialog(QDialog):
+    """CompressDialog class."""
+    def __init__(self, item_name, parent=None):
+        """__init__ method."""
+        super().__init__(parent)
+        self.setWindowTitle(f"Compress: {item_name}")
+        self.colors = 256
+        self.init_ui()
+
+    def init_ui(self):
+        """init_ui method."""
+        layout = QVBoxLayout(self)
+        form = QFormLayout()
+
+        self.color_spin = QSpinBox()
+        self.color_spin.setRange(2, 256)
+        self.color_spin.setValue(256)
+        self.color_spin.setToolTip("Lower values reduce file size but reduce color quality.")
+        form.addRow("Number of Colors:", self.color_spin)
+
+        layout.addLayout(form)
+
+        btn_layout = QHBoxLayout()
+        ok_btn = QPushButton("Compress")
+        ok_btn.clicked.connect(self.accept_data)
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.clicked.connect(self.reject)
+
+        btn_layout.addStretch()
+        btn_layout.addWidget(ok_btn)
+        btn_layout.addWidget(cancel_btn)
+        layout.addLayout(btn_layout)
+
+    def accept_data(self):
+        """accept_data method."""
+        self.colors = self.color_spin.value()
+        self.accept()
+
+class ExportGifDialog(QDialog):
+    """ExportGifDialog class."""
+    def __init__(self, item_name, parent=None):
+        """__init__ method."""
+        super().__init__(parent)
+        self.setWindowTitle(f"Export GIF: {item_name}")
+        self.dest_path = ""
+        self.fps = 30
+        self.init_ui()
+
+    def init_ui(self):
+        """init_ui method."""
+        layout = QVBoxLayout(self)
+        form = QFormLayout()
+
+        self.fps_spin = QSpinBox()
+        self.fps_spin.setRange(1, 120)
+        self.fps_spin.setValue(30)
+        form.addRow("Frame Rate (FPS):", self.fps_spin)
+
+        path_layout = QHBoxLayout()
+        self.path_input = QLineEdit()
+        self.path_input.setPlaceholderText("Select destination directory...")
+        path_btn = QPushButton("Browse")
+        path_btn.clicked.connect(self.browse_path)
+        path_layout.addWidget(self.path_input)
+        path_layout.addWidget(path_btn)
+
+        form.addRow("Destination:", path_layout)
+        layout.addLayout(form)
+
+        btn_layout = QHBoxLayout()
+        export_btn = QPushButton("Export")
+        export_btn.clicked.connect(self.do_export)
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.clicked.connect(self.reject)
+
+        btn_layout.addStretch()
+        btn_layout.addWidget(export_btn)
+        btn_layout.addWidget(cancel_btn)
+        layout.addLayout(btn_layout)
+
+    def browse_path(self):
+        """browse_path method."""
+        dir_path = QFileDialog.getExistingDirectory(self, "Select Destination Folder")
+        if dir_path:
+            self.path_input.setText(dir_path)
+
+    def do_export(self):
+        """do_export method."""
+        if not self.path_input.text().strip():
+            QMessageBox.warning(self, "Error", "Please select a destination path.")
+            return
+        self.dest_path = self.path_input.text().strip()
+        self.fps = self.fps_spin.value()
+        self.accept()
 
 
 class ExportDialog(QDialog):
@@ -545,6 +640,7 @@ class ExportDialog(QDialog):
 
         self.export_type = "Folder"
         self.dest_path = ""
+        self.compression_level = None
         self.init_ui()
 
     def init_ui(self):
@@ -555,6 +651,20 @@ class ExportDialog(QDialog):
         self.type_combo = QComboBox()
         self.type_combo.addItems(["Folder (Godot/Engine)", "ZIP Archive"])
         form.addRow("Format:", self.type_combo)
+
+        self.compress_cb = QCheckBox("Compress PNGs")
+        self.compress_cb.stateChanged.connect(self.toggle_compression)
+
+        self.color_spin = QSpinBox()
+        self.color_spin.setRange(2, 256)
+        self.color_spin.setValue(256)
+        self.color_spin.setEnabled(False)
+
+        comp_layout = QHBoxLayout()
+        comp_layout.addWidget(self.compress_cb)
+        comp_layout.addWidget(QLabel("Colors:"))
+        comp_layout.addWidget(self.color_spin)
+        form.addRow("Compression:", comp_layout)
 
         path_layout = QHBoxLayout()
         self.path_input = QLineEdit()
@@ -579,6 +689,10 @@ class ExportDialog(QDialog):
 
         layout.addLayout(btn_layout)
 
+    def toggle_compression(self, state):
+        """toggle_compression method."""
+        self.color_spin.setEnabled(state == Qt.CheckState.Checked.value)
+
     def browse_path(self):
         """browse_path method."""
         dir_path = QFileDialog.getExistingDirectory(self, "Select Destination Folder")
@@ -595,6 +709,10 @@ class ExportDialog(QDialog):
         self.export_type = (
             "ZIP Archive" if "ZIP" in self.type_combo.currentText() else "Folder"
         )
+        if self.compress_cb.isChecked():
+            self.compression_level = self.color_spin.value()
+        else:
+            self.compression_level = None
         self.accept()
 
 

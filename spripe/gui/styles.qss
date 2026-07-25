@@ -68,12 +68,16 @@ QHeaderView::section {
     font-weight: bold;
 }
 
+QHeaderView {
+    background-color: #1E1E1E;
+}
+
 QTableCornerButton::section {
     background-color: #2D2D2D;
     border: 1px solid #333333;
 }
 
-QLineEdit, QComboBox {
+QLineEdit, QComboBox, QSpinBox {
     background-color: #1E1E1E;
     border: 1px solid #333333;
     border-radius: 4px;

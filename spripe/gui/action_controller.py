@@ -14,8 +14,11 @@ from spripe.gui.dialogs import (
     DeleteConfirmationDialog,
     AboutDialog,
     TutorialsDialog,
+    CompressDialog,
+    ExportGifDialog,
 )
 from spripe.scripts.normalize_animations import normalize_asset
+from spripe.scripts.compress_animations import compress_asset
 
 
 class ActionController:
@@ -247,6 +250,7 @@ class ActionController:
                     anim if is_animation else None,
                     dlg.dest_path,
                     dlg.export_type,
+                    dlg.compression_level,
                 )
                 QMessageBox.information(
                     self.mw, "Success", f"Successfully exported to:\n{dlg.dest_path}"
@@ -362,6 +366,55 @@ class ActionController:
                 normalize_asset,
                 msg,
                 asset_dir=asset_path,
-                anim_name=[anim],
                 overwrite=True,
             )
+
+    def compress_animation(self, proj, asset, anim):
+        """compress_animation method."""
+        asset_path = os.path.join(self.mw.project_manager.get_project_path(proj), asset)
+        item_name = f"{len(anim)} animations" if isinstance(anim, list) else anim
+
+        dlg = CompressDialog(item_name, self.mw)
+        if dlg.exec():
+            if isinstance(anim, list):
+                msg = f"Compressing {len(anim)} animation(s)..."
+                self.mw.pipeline_controls.start_worker(
+                    compress_asset,
+                    msg,
+                    asset_dir=asset_path,
+                    colors=dlg.colors,
+                    anim_name=anim,
+                    overwrite=True,
+                )
+            else:
+                msg = f"Compressing {anim}..."
+                self.mw.pipeline_controls.start_worker(
+                    compress_asset,
+                    msg,
+                    asset_dir=asset_path,
+                    colors=dlg.colors,
+                    anim_name=[anim],
+                    overwrite=True,
+                )
+
+    def export_gif_animation(self, proj, asset, anim):
+        """export_gif_animation method."""
+        dlg = ExportGifDialog(anim, self.mw)
+        if dlg.exec():
+            try:
+                self.mw.project_manager.export_item(
+                    proj,
+                    asset,
+                    anim,
+                    dlg.dest_path,
+                    "GIF",
+                    None,
+                    dlg.fps,
+                )
+                QMessageBox.information(
+                    self.mw, "Success", f"Successfully exported GIF to:\n{dlg.dest_path}"
+                )
+            except Exception as e:
+                QMessageBox.critical(
+                    self.mw, "Export Failed", f"An error occurred during GIF export:\n{e}"
+                )

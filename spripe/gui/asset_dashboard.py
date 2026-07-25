@@ -1,22 +1,28 @@
 """
 Module docstring.
 """
+import json
+import os
+from typing import List, Optional, Union
+
+from PyQt6.QtCore import QSize, Qt, pyqtSignal
+from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
-    QPushButton,
+    QAbstractItemView,
+    QHBoxLayout,
     QLabel,
+    QMenu,
+    QMessageBox,
+    QPushButton,
+    QStyle,
     QTableWidget,
     QTableWidgetItem,
+    QVBoxLayout,
+    QWidget,
     QHeaderView,
-    QMessageBox,
-    QHBoxLayout,
-    QMenu,
-    QAbstractItemView,
 )
-from PyQt6.QtCore import pyqtSignal, Qt
-from PyQt6.QtGui import QColor
-from typing import Optional, List, Union
+
+from spripe.core.config import Config
 from spripe.core.project_manager import ProjectManager
 
 
@@ -27,6 +33,13 @@ class AssetDashboardWidget(QWidget):
     action_normalize_animation = pyqtSignal(
         str, str, object
     )  # proj, asset, anim (or list of anims)
+    action_compress_animation = pyqtSignal(
+        str, str, object
+    )  # proj, asset, anim (or list of anims)
+    action_export_gif = pyqtSignal(
+        str, str, str
+    )  # proj, asset, anim
+    action_create_missing = pyqtSignal(str, str, str)  # proj, asset, anim
     action_new_animation = pyqtSignal(str, str)  # proj, asset
 
     def __init__(
@@ -67,29 +80,39 @@ class AssetDashboardWidget(QWidget):
         self.btn_set_template = QPushButton("Set as Folder Template")
         self.btn_normalize_selected = QPushButton("Normalize Selected")
         self.btn_normalize_all = QPushButton("Normalize All")
+        self.btn_compress_all = QPushButton("Compress All")
+        self.btn_compress_all.clicked.connect(self.compress_all_animations)
+        self.btn_compress_all.setEnabled(False)
 
         self.btn_new_anim.clicked.connect(self.on_new_anim)
         self.btn_generate_anim.clicked.connect(self.on_generate_anim)
         self.btn_set_template.clicked.connect(self.on_set_template)
         self.btn_normalize_selected.clicked.connect(self.on_normalize_selected)
-        self.btn_normalize_all.clicked.connect(self.on_normalize_all)
+        self.btn_normalize_all.clicked.connect(self.normalize_all_animations)
 
         btn_layout.addWidget(self.btn_new_anim)
         btn_layout.addWidget(self.btn_generate_anim)
         btn_layout.addWidget(self.btn_set_template)
-        btn_layout.addStretch()
         btn_layout.addWidget(self.btn_normalize_selected)
         btn_layout.addWidget(self.btn_normalize_all)
+        btn_layout.addWidget(self.btn_compress_all)
+        btn_layout.addStretch()
         layout.addLayout(btn_layout)
 
         self.anim_table = QTableWidget()
-        self.anim_table.setColumnCount(2)
-        self.anim_table.setHorizontalHeaderLabels(["Animation Name", "Status"])
+        self.anim_table.setColumnCount(4)
+        self.anim_table.setHorizontalHeaderLabels(["Animation Name", "Status", "Normalized Size", "Compressed Version"])
         self.anim_table.horizontalHeader().setSectionResizeMode(
             0, QHeaderView.ResizeMode.Stretch
         )
         self.anim_table.horizontalHeader().setSectionResizeMode(
             1, QHeaderView.ResizeMode.ResizeToContents
+        )
+        self.anim_table.horizontalHeader().setSectionResizeMode(
+            2, QHeaderView.ResizeMode.Interactive
+        )
+        self.anim_table.horizontalHeader().setSectionResizeMode(
+            3, QHeaderView.ResizeMode.Interactive
         )
         self.anim_table.setSelectionBehavior(
             QAbstractItemView.SelectionBehavior.SelectRows
@@ -157,8 +180,83 @@ class AssetDashboardWidget(QWidget):
             elif status == "Missing":
                 status_item.setForeground(QColor("#EF4444"))
 
+            def get_dir_size_str(path):
+                if not os.path.exists(path):
+                    return ""
+                total_size = sum(os.path.getsize(os.path.join(path, f)) for f in os.listdir(path) if os.path.isfile(os.path.join(path, f)))
+                if total_size < 1024:
+                    return f"{total_size} B"
+                if total_size < 1024 * 1024:
+                    return f"{total_size / 1024:.1f} KB"
+                return f"{total_size / (1024 * 1024):.1f} MB"
+
+            asset_path = self.project_manager.registry.get_project_path(self.current_project) / self.current_asset
+            norm_dir = asset_path / Config.DIR_NORMALIZED_OUTPUT / f"{Config.PREFIX_NORMALIZED}{anim}"
+            comp_dir = asset_path / Config.DIR_COMPRESSED_OUTPUT / f"{Config.PREFIX_COMPRESSED}{anim}"
+
+            norm_size_str = get_dir_size_str(norm_dir)
+            comp_size_str = get_dir_size_str(comp_dir)
+
+            if os.path.exists(comp_dir):
+                meta_path = os.path.join(comp_dir, "compression_meta.json")
+                if os.path.exists(meta_path):
+                    try:
+                        with open(meta_path, "r", encoding="utf-8") as f:
+                            meta = json.load(f)
+                            colors = meta.get("colors", "?")
+                            comp_size_str += f" (Colors: {colors})"
+                    except Exception:
+                        pass
+
+            def create_size_widget(size_text, dir_path):
+                if not size_text:
+                    item = QTableWidgetItem("")
+                    item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                    return item, None
+
+                widget = QWidget()
+                layout = QHBoxLayout(widget)
+                layout.setContentsMargins(4, 0, 4, 0)
+                layout.setSpacing(8)
+
+                label = QLabel(size_text)
+                btn = QPushButton()
+                btn.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DirOpenIcon))
+                btn.setFixedSize(24, 24)
+                btn.setToolTip("Open Folder Location")
+                btn.setStyleSheet("QPushButton { border: none; background: transparent; font-size: 14px; } QPushButton:hover { background: #333; border-radius: 4px; }")
+
+                # capture current path
+                path_to_open = str(dir_path)
+                btn.clicked.connect(lambda _, p=path_to_open: os.startfile(p) if hasattr(os, 'startfile') else None)
+
+                layout.addWidget(label)
+                layout.addWidget(btn)
+                layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+
+                item = QTableWidgetItem(size_text)
+                item.setForeground(Qt.GlobalColor.transparent)
+                item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                return item, widget
+
             self.anim_table.setItem(row, 0, name_item)
             self.anim_table.setItem(row, 1, status_item)
+
+            norm_item, norm_widget = create_size_widget(norm_size_str, norm_dir)
+            if norm_item:
+                self.anim_table.setItem(row, 2, norm_item)
+            if norm_widget:
+                self.anim_table.setCellWidget(row, 2, norm_widget)
+
+            comp_item, comp_widget = create_size_widget(comp_size_str, comp_dir)
+            if comp_item:
+                self.anim_table.setItem(row, 3, comp_item)
+            if comp_widget:
+                self.anim_table.setCellWidget(row, 3, comp_widget)
+
+        self.anim_table.resizeColumnToContents(1)
+        self.anim_table.setColumnWidth(2, 140)
+        self.anim_table.setColumnWidth(3, 230)
 
     def show_context_menu(self, position):
         """show_context_menu method."""
@@ -177,9 +275,23 @@ class AssetDashboardWidget(QWidget):
                 action_text = "Renormalize" if status == "Normalized" else "Normalize"
                 act_normalize = menu.addAction(action_text)
 
+                act_compress = None
+                act_export_gif = None
+                if status in ["Normalized", "Compressed"]:
+                    act_compress = menu.addAction("Compress Animation")
+                    act_export_gif = menu.addAction("Export as GIF")
+
                 action = menu.exec(self.anim_table.viewport().mapToGlobal(position))
                 if action == act_normalize:
                     self.action_normalize_animation.emit(
+                        self.current_project, self.current_asset, anim
+                    )
+                elif act_compress and action == act_compress:
+                    self.action_compress_animation.emit(
+                        self.current_project, self.current_asset, anim
+                    )
+                elif act_export_gif and action == act_export_gif:
+                    self.action_export_gif.emit(
                         self.current_project, self.current_asset, anim
                     )
 
@@ -216,17 +328,31 @@ class AssetDashboardWidget(QWidget):
                 self.current_project, self.current_asset, selected_anims
             )
 
-    def on_normalize_all(self):
-        """on_normalize_all method."""
+    def normalize_all_animations(self):
+        """normalize_all_animations method."""
         # Filter out missing
         anims = []
         for row in range(self.anim_table.rowCount()):
             status = self.anim_table.item(row, 1).text()
             if status != "Missing":
                 anims.append(self.anim_table.item(row, 0).text())
-        self.action_normalize_animation.emit(
-            self.current_project, self.current_asset, anims
-        )
+        if anims:
+            self.action_normalize_animation.emit(
+                self.current_project, self.current_asset, anims
+            )
+
+    def compress_all_animations(self):
+        """compress_all_animations method."""
+        # Filter out missing
+        anims = []
+        for row in range(self.anim_table.rowCount()):
+            status = self.anim_table.item(row, 1).text()
+            if status != "Missing":
+                anims.append(self.anim_table.item(row, 0).text())
+        if anims:
+            self.action_compress_animation.emit(
+                self.current_project, self.current_asset, anims
+            )
 
     def on_generate_anim(self):
         """on_generate_anim method."""

@@ -1,0 +1,17 @@
+site_name: Spripe Asset Pipeline
+site_description: Documentation for the spripe 2D sprite asset pipeline application.
+theme:
+  name: material
+  palette:
+    scheme: default
+    primary: blue
+
+nav:
+  - Home: index.md
+  - User Guide:
+    - Tutorial: user/tutorial.md
+  - Developer Guide:
+    - Architecture: dev/architecture.md
+    - Core Services: dev/core_services.md
+    - GUI Components: dev/gui_components.md
+    - Data Model: dev/data_model.md

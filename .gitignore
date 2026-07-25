@@ -1,0 +1,21 @@
+# Temporary workspace and generated outputs
+workspace/
+raw_output/
+normalized_output/
+
+# User specific settings
+settings.json
+
+# Archived/unused scripts
+archive/
+
+# Python caches and environments
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.env
+.venv/

@@ -1,6 +1,7 @@
 """
 Compresses normalized PNG animations using color quantization.
 """
+
 import os
 import glob
 import argparse
@@ -16,6 +17,7 @@ def compress_asset(
     progress_callback=None,
 ):
     """compress_asset function."""
+
     def log(msg):
         """log method."""
         if progress_callback:
@@ -35,7 +37,9 @@ def compress_asset(
         compressed_dir = os.path.join(base_dir, "compressed_output")
 
     anim_dirs = [
-        d for d in glob.glob(os.path.join(normalized_dir, "normalized_*")) if os.path.isdir(d)
+        d
+        for d in glob.glob(os.path.join(normalized_dir, "normalized_*"))
+        if os.path.isdir(d)
     ]
 
     if anim_name:
@@ -76,11 +80,13 @@ def compress_asset(
             try:
                 with Image.open(frame_path) as img:
                     # Convert to RGBA if not already
-                    if img.mode != 'RGBA':
-                        img = img.convert('RGBA')
+                    if img.mode != "RGBA":
+                        img = img.convert("RGBA")
 
                     # Quantize image (reduces colors to save space)
-                    quantized = img.quantize(colors=colors, method=Image.Quantize.FASTOCTREE)
+                    quantized = img.quantize(
+                        colors=colors, method=Image.Quantize.FASTOCTREE
+                    )
 
                     # Save optimized
                     quantized.save(out_path, optimize=True, format="PNG")

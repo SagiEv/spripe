@@ -1,6 +1,7 @@
 """
 Module docstring.
 """
+
 import cv2
 import numpy as np
 import os
@@ -31,6 +32,7 @@ def normalize_asset(
     progress_callback=None,
 ):
     """normalize_asset function."""
+
     def log(msg):
         """log method."""
         if progress_callback:

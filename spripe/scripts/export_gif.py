@@ -1,19 +1,16 @@
 """
 Exports a sequence of PNG frames into a GIF.
 """
+
 import os
 import glob
 import argparse
 from PIL import Image
 
-def export_gif(
-    input_dir,
-    output_path,
-    fps=30,
-    loop=0,
-    progress_callback=None
-):
+
+def export_gif(input_dir, output_path, fps=30, loop=0, progress_callback=None):
     """export_gif function."""
+
     def log(msg):
         """log method."""
         if progress_callback:
@@ -34,8 +31,8 @@ def export_gif(
             # We open and copy to ensure we keep it in memory
             # safely without holding file handles open forever
             with Image.open(path) as img:
-                if img.mode != 'RGBA':
-                    img = img.convert('RGBA')
+                if img.mode != "RGBA":
+                    img = img.convert("RGBA")
                 # GIF expects palette with transparency for best results via save_all
                 frames.append(img.copy())
 
@@ -48,9 +45,9 @@ def export_gif(
             append_images=frames[1:],
             duration=duration,
             loop=loop,
-            disposal=2, # Restore to background color for transparency
+            disposal=2,  # Restore to background color for transparency
             transparency=0,
-            optimize=False
+            optimize=False,
         )
         log(f"GIF exported successfully to {output_path}")
         return True
@@ -58,11 +55,10 @@ def export_gif(
         log(f"Error exporting GIF: {e}")
         return False
 
+
 def main():
     """main function."""
-    parser = argparse.ArgumentParser(
-        description="Export animation to GIF."
-    )
+    parser = argparse.ArgumentParser(description="Export animation to GIF.")
     parser.add_argument(
         "--input-dir",
         type=str,
@@ -93,8 +89,9 @@ def main():
         input_dir=args.input_dir,
         output_path=args.output_path,
         fps=args.fps,
-        loop=args.loop
+        loop=args.loop,
     )
+
 
 if __name__ == "__main__":
     main()

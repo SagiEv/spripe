@@ -1,6 +1,7 @@
 """
 Module docstring.
 """
+
 import os
 from PyQt6.QtWidgets import QMessageBox, QFileDialog, QInputDialog
 from spripe.gui.dialogs import (
@@ -19,10 +20,88 @@ from spripe.gui.dialogs import (
 )
 from spripe.scripts.normalize_animations import normalize_asset
 from spripe.scripts.compress_animations import compress_asset
+from spripe.core.history import Command, CommandContext
+import uuid
+import shutil
+import copy
+
+
+class WorkspaceMetadataCommand(Command):
+    """Command that caches metadata before and after a change."""
+
+    def __init__(
+        self, description: str, context: CommandContext, proj_name, pm, action_cb
+    ):
+        super().__init__(description, context)
+        self.proj_name = proj_name
+        self.pm = pm
+        self.action_cb = action_cb
+        self.before_metadata = copy.deepcopy(pm.get_project_metadata(proj_name))
+
+    def execute(self):
+        self.action_cb()
+        self.after_metadata = copy.deepcopy(
+            self.pm.get_project_metadata(self.proj_name)
+        )
+
+    def undo(self):
+        self.pm.save_project_metadata(self.proj_name, self.before_metadata)
+        from spripe.core.signal_manager import SignalManager
+
+        SignalManager.get_instance().workspace_changed.emit("")
+
+    def redo(self):
+        self.pm.save_project_metadata(self.proj_name, self.after_metadata)
+        from spripe.core.signal_manager import SignalManager
+
+        SignalManager.get_instance().workspace_changed.emit("")
+
+
+class WorkspaceDeleteCommand(Command):
+    """Command that moves a file or folder to a backup before deletion."""
+
+    def __init__(
+        self,
+        description: str,
+        context: CommandContext,
+        src_path,
+        workspace_dir,
+        action_cb,
+    ):
+        super().__init__(description, context)
+        self.src_path = src_path
+        self.workspace_dir = workspace_dir
+        self.action_cb = action_cb
+        self.backup_path = os.path.join(workspace_dir, ".history", str(uuid.uuid4()))
+        os.makedirs(os.path.dirname(self.backup_path), exist_ok=True)
+        if os.path.isdir(self.src_path):
+            shutil.copytree(self.src_path, self.backup_path)
+        else:
+            shutil.copy2(self.src_path, self.backup_path)
+
+    def execute(self):
+        self.action_cb()
+
+    def undo(self):
+        if not os.path.exists(self.src_path):
+            if os.path.isdir(self.backup_path):
+                shutil.copytree(self.backup_path, self.src_path)
+            else:
+                shutil.copy2(self.backup_path, self.src_path)
+        from spripe.core.signal_manager import SignalManager
+
+        SignalManager.get_instance().workspace_changed.emit("")
+
+    def redo(self):
+        self.action_cb()
+        from spripe.core.signal_manager import SignalManager
+
+        SignalManager.get_instance().workspace_changed.emit("")
 
 
 class ActionController:
     """ActionController class."""
+
     def __init__(self, main_window):
         """__init__ method."""
         self.mw = main_window
@@ -82,17 +161,28 @@ class ActionController:
     def show_import_project(self):
         """show_import_project method."""
         file_path, _ = QFileDialog.getOpenFileName(
-            self.mw, "Import Project", "", "Spripe Pack (*.spripepack *.zip);;Spripe Project (*.spripe)"
+            self.mw,
+            "Import Project",
+            "",
+            "Spripe Pack (*.spripepack *.zip);;Spripe Project (*.spripe)",
         )
         if file_path:
-            if file_path.endswith('.spripepack') or file_path.endswith('.zip'):
+            if file_path.endswith(".spripepack") or file_path.endswith(".zip"):
                 try:
                     self.mw.project_manager.fs.import_project(file_path)
-                    QMessageBox.information(self.mw, "Success", f"Project imported successfully.")
+                    QMessageBox.information(
+                        self.mw, "Success", f"Project imported successfully."
+                    )
                 except Exception as e:
-                    QMessageBox.critical(self.mw, "Error", f"Failed to import project:\n{e}")
+                    QMessageBox.critical(
+                        self.mw, "Error", f"Failed to import project:\n{e}"
+                    )
             else:
-                QMessageBox.information(self.mw, "Import", "Use File -> Open Project to open a .spripe file directly, or manually copy the folder.")
+                QMessageBox.information(
+                    self.mw,
+                    "Import",
+                    "Use File -> Open Project to open a .spripe file directly, or manually copy the folder.",
+                )
 
     def show_open_project(self):
         """show_open_project method."""
@@ -112,23 +202,36 @@ class ActionController:
             msg_box.setText(f"Open project '{project_name}'?")
             cb = QCheckBox("Copy to Workspace")
             msg_box.setCheckBox(cb)
-            msg_box.setStandardButtons(QMessageBox.StandardButton.Open | QMessageBox.StandardButton.Cancel)
+            msg_box.setStandardButtons(
+                QMessageBox.StandardButton.Open | QMessageBox.StandardButton.Cancel
+            )
 
             if msg_box.exec() == QMessageBox.StandardButton.Open:
                 if cb.isChecked():
                     try:
                         import shutil
-                        dest = os.path.join(self.mw.project_manager.workspace_dir, project_name)
+
+                        dest = os.path.join(
+                            self.mw.project_manager.workspace_dir, project_name
+                        )
                         if os.path.exists(dest):
-                            QMessageBox.warning(self.mw, "Warning", "Project already exists in workspace.")
+                            QMessageBox.warning(
+                                self.mw,
+                                "Warning",
+                                "Project already exists in workspace.",
+                            )
                             return
                         shutil.copytree(project_dir, dest)
                         self.mw.project_manager.registry.add_project(project_name, dest)
                     except Exception as e:
-                        QMessageBox.critical(self.mw, "Error", f"Failed to copy project:\n{e}")
+                        QMessageBox.critical(
+                            self.mw, "Error", f"Failed to copy project:\n{e}"
+                        )
                         return
                 else:
-                    self.mw.project_manager.registry.add_project(project_name, project_dir)
+                    self.mw.project_manager.registry.add_project(
+                        project_name, project_dir
+                    )
 
                 self.mw.settings_manager.add_recent_project(project_dir)
                 self.mw.asset_browser.refresh_assets()
@@ -141,27 +244,36 @@ class ActionController:
             return
 
         file_path, selected_filter = QFileDialog.getSaveFileName(
-            self.mw, "Save Project As", self.mw.current_project,
-            "Spripe Project Folder (*.spripe);;Spripe Pack Archive (*.spripepack)"
+            self.mw,
+            "Save Project As",
+            self.mw.current_project,
+            "Spripe Project Folder (*.spripe);;Spripe Pack Archive (*.spripepack)",
         )
         if file_path:
             try:
                 import shutil
-                src_path = self.mw.project_manager.get_project_path(self.mw.current_project)
+
+                src_path = self.mw.project_manager.get_project_path(
+                    self.mw.current_project
+                )
 
                 if ".spripepack" in selected_filter:
-                    if file_path.endswith('.spripepack'):
-                        file_path = file_path[:-11] # remove extension for make_archive
+                    if file_path.endswith(".spripepack"):
+                        file_path = file_path[:-11]  # remove extension for make_archive
                     shutil.make_archive(file_path, "zip", src_path)
                     if os.path.exists(file_path + ".zip"):
                         os.rename(file_path + ".zip", file_path + ".spripepack")
                 else:
                     if os.path.exists(file_path):
-                        QMessageBox.warning(self.mw, "Warning", "Destination already exists.")
+                        QMessageBox.warning(
+                            self.mw, "Warning", "Destination already exists."
+                        )
                         return
                     shutil.copytree(src_path, file_path)
 
-                QMessageBox.information(self.mw, "Success", "Project saved successfully.")
+                QMessageBox.information(
+                    self.mw, "Success", "Project saved successfully."
+                )
             except Exception as e:
                 QMessageBox.critical(self.mw, "Error", f"Failed to save project:\n{e}")
 
@@ -284,12 +396,29 @@ class ActionController:
             self.mw, "Create Virtual Folder", "Folder Name:"
         )
         if ok and text:
-            metadata = self.mw.project_manager.get_project_metadata(proj_name)
-            if "folders" not in metadata:
-                metadata["folders"] = []
-            if text not in metadata["folders"]:
-                metadata["folders"].append(text)
-                self.mw.project_manager.save_project_metadata(proj_name, metadata)
+
+            def action():
+                metadata = self.mw.project_manager.get_project_metadata(proj_name)
+                if "folders" not in metadata:
+                    metadata["folders"] = []
+                if text not in metadata["folders"]:
+                    metadata["folders"].append(text)
+                    self.mw.project_manager.save_project_metadata(proj_name, metadata)
+                from spripe.core.signal_manager import SignalManager
+
+                SignalManager.get_instance().workspace_changed.emit("")
+
+            if self.mw.history_manager and self.mw.get_current_context:
+                cmd = WorkspaceMetadataCommand(
+                    f"Create Folder '{text}'",
+                    self.mw.get_current_context(),
+                    proj_name,
+                    self.mw.project_manager,
+                    action,
+                )
+                self.mw.history_manager.push(cmd)
+            else:
+                action()
 
     def show_move_to_folder(self, proj_name, asset_name):
         """show_move_to_folder method."""
@@ -307,39 +436,155 @@ class ActionController:
             True,
         )
         if ok and item:
-            if "virtual_folders" not in metadata:
-                metadata["virtual_folders"] = {}
 
-            if item.startswith("(Root"):
-                if asset_name in metadata["virtual_folders"]:
-                    del metadata["virtual_folders"][asset_name]
+            def action():
+                m = self.mw.project_manager.get_project_metadata(proj_name)
+                if "virtual_folders" not in m:
+                    m["virtual_folders"] = {}
+
+                if item.startswith("(Root"):
+                    if asset_name in m["virtual_folders"]:
+                        del m["virtual_folders"][asset_name]
+                else:
+                    m["virtual_folders"][asset_name] = item
+
+                self.mw.project_manager.save_project_metadata(proj_name, m)
+                from spripe.core.signal_manager import SignalManager
+
+                SignalManager.get_instance().workspace_changed.emit("")
+                if self.mw.current_project == proj_name:
+                    self.mw.project_dashboard.refresh_view()
+
+            if self.mw.history_manager and self.mw.get_current_context:
+                cmd = WorkspaceMetadataCommand(
+                    f"Move '{asset_name}'",
+                    self.mw.get_current_context(),
+                    proj_name,
+                    self.mw.project_manager,
+                    action,
+                )
+                self.mw.history_manager.push(cmd)
             else:
-                metadata["virtual_folders"][asset_name] = item
+                action()
 
-            self.mw.project_manager.save_project_metadata(proj_name, metadata)
-            if self.mw.current_project == proj_name:
-                self.mw.project_dashboard.refresh_view()
+    def remove_folder(self, proj_name, folder_name):
+        """remove_folder method."""
+        dlg = QMessageBox.question(
+            self.mw,
+            "Confirm Delete",
+            f"Are you sure you want to remove the virtual folder '{folder_name}'?\n\nAssets inside it will be moved to the root.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if dlg == QMessageBox.StandardButton.Yes:
+
+            def action():
+                m = self.mw.project_manager.get_project_metadata(proj_name)
+                if "folders" in m and folder_name in m["folders"]:
+                    m["folders"].remove(folder_name)
+
+                if "virtual_folders" in m:
+                    for asset, folder in list(m["virtual_folders"].items()):
+                        if folder == folder_name:
+                            del m["virtual_folders"][asset]
+                self.mw.project_manager.save_project_metadata(proj_name, m)
+                from spripe.core.signal_manager import SignalManager
+
+                SignalManager.get_instance().workspace_changed.emit("")
+
+            if self.mw.history_manager and self.mw.get_current_context:
+                cmd = WorkspaceMetadataCommand(
+                    f"Remove Folder '{folder_name}'",
+                    self.mw.get_current_context(),
+                    proj_name,
+                    self.mw.project_manager,
+                    action,
+                )
+                self.mw.history_manager.push(cmd)
+            else:
+                action()
 
     def remove_project(self, proj_name):
         """remove_project method."""
         dlg = DeleteConfirmationDialog(proj_name, is_project=True, parent=self.mw)
         if dlg.exec():
             delete_files = dlg.delete_mode == "delete"
-            self.mw.project_manager.delete_project(proj_name, delete_files)
+
+            def action():
+                self.mw.project_manager.delete_project(proj_name, delete_files)
+
+            if (
+                delete_files
+                and self.mw.history_manager
+                and self.mw.get_current_context
+            ):
+                src = self.mw.project_manager.get_project_path(proj_name)
+                if os.path.exists(src):
+                    cmd = WorkspaceDeleteCommand(
+                        f"Delete Project '{proj_name}'",
+                        self.mw.get_current_context(),
+                        src,
+                        self.mw.project_manager.workspace_dir,
+                        action,
+                    )
+                    self.mw.history_manager.push(cmd)
+                else:
+                    action()
+            else:
+                action()
 
     def remove_asset(self, proj_name, asset_name):
         """remove_asset method."""
         dlg = DeleteConfirmationDialog(asset_name, is_project=False, parent=self.mw)
         if dlg.exec():
             if dlg.delete_mode == "delete":
-                self.mw.project_manager.delete_asset(proj_name, asset_name)
+
+                def action():
+                    self.mw.project_manager.delete_asset(proj_name, asset_name)
+
+                if self.mw.history_manager and self.mw.get_current_context:
+                    src = os.path.join(
+                        self.mw.project_manager.get_project_path(proj_name), asset_name
+                    )
+                    if os.path.exists(src):
+                        cmd = WorkspaceDeleteCommand(
+                            f"Delete Asset '{asset_name}'",
+                            self.mw.get_current_context(),
+                            src,
+                            self.mw.project_manager.workspace_dir,
+                            action,
+                        )
+                        self.mw.history_manager.push(cmd)
+                    else:
+                        action()
+                else:
+                    action()
 
     def remove_animation(self, proj, asset, anim):
         """remove_animation method."""
         dlg = DeleteConfirmationDialog(anim, is_project=False, parent=self.mw)
         if dlg.exec():
             if dlg.delete_mode == "delete":
-                self.mw.project_manager.delete_animation(proj, asset, anim)
+
+                def action():
+                    self.mw.project_manager.delete_animation(proj, asset, anim)
+
+                if self.mw.history_manager and self.mw.get_current_context:
+                    src = os.path.join(
+                        self.mw.project_manager.get_project_path(proj), asset, anim
+                    )
+                    if os.path.exists(src):
+                        cmd = WorkspaceDeleteCommand(
+                            f"Delete Anim '{anim}'",
+                            self.mw.get_current_context(),
+                            src,
+                            self.mw.project_manager.workspace_dir,
+                            action,
+                        )
+                        self.mw.history_manager.push(cmd)
+                    else:
+                        action()
+                else:
+                    action()
 
     def renormalize_animation(self, proj, asset, anim):
         """renormalize_animation method."""
@@ -412,9 +657,13 @@ class ActionController:
                     dlg.fps,
                 )
                 QMessageBox.information(
-                    self.mw, "Success", f"Successfully exported GIF to:\n{dlg.dest_path}"
+                    self.mw,
+                    "Success",
+                    f"Successfully exported GIF to:\n{dlg.dest_path}",
                 )
             except Exception as e:
                 QMessageBox.critical(
-                    self.mw, "Export Failed", f"An error occurred during GIF export:\n{e}"
+                    self.mw,
+                    "Export Failed",
+                    f"An error occurred during GIF export:\n{e}",
                 )

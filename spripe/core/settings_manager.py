@@ -1,6 +1,7 @@
 """
 Module docstring.
 """
+
 import json
 import os
 
@@ -9,6 +10,7 @@ SETTINGS_FILE = "settings.json"
 
 class SettingsManager:
     """SettingsManager class."""
+
     def __init__(self, base_dir):
         """__init__ method."""
         self.settings_path = os.path.join(base_dir, SETTINGS_FILE)
@@ -17,6 +19,7 @@ class SettingsManager:
             "export_dir": "",
             "theme": "dark",
             "recent_projects": [],
+            "undo_limit": 10,
         }
         self.load_error = None
         try:

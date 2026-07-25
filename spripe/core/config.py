@@ -1,11 +1,13 @@
 """
 Module docstring.
 """
+
 from pathlib import Path
 
 
 class Config:
     """Config class."""
+
     # Directory names
     DIR_VIDEOS = "videos"
     DIR_RAW_OUTPUT = "raw_output"

@@ -1,6 +1,7 @@
 """
 Module docstring.
 """
+
 from PyQt6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -20,6 +21,7 @@ import os
 
 class DraggableListWidget(QListWidget):
     """DraggableListWidget class."""
+
     itemsMoved = pyqtSignal(list, object)
 
     def dropEvent(self, event):
@@ -42,6 +44,7 @@ class DraggableListWidget(QListWidget):
 
 class ProjectDashboardWidget(QWidget):
     """ProjectDashboardWidget class."""
+
     metadata_updated = pyqtSignal()
     asset_selected = pyqtSignal(str, str)
 
@@ -52,6 +55,11 @@ class ProjectDashboardWidget(QWidget):
         self.current_project = None
         self.current_folder = None
         self.init_ui()
+
+        from spripe.core.signal_manager import SignalManager
+
+        sm = SignalManager.get_instance()
+        sm.workspace_changed.connect(lambda _: self.refresh_view())
 
     def init_ui(self):
         """init_ui method."""
@@ -144,11 +152,19 @@ class ProjectDashboardWidget(QWidget):
         else:
             self.current_folder = filter_folder
 
-        self.btn_edit_template.setVisible(self.current_folder is not None)
-
         metadata = self.project_manager.get_project_metadata(self.current_project)
         virtual_folders = metadata.get("virtual_folders", {})
         explicit_folders = metadata.get("folders", [])
+
+        if self.current_folder is not None:
+            if (
+                self.current_folder not in explicit_folders
+                and self.current_folder not in virtual_folders.values()
+            ):
+                self.current_folder = None
+                filter_folder = None
+
+        self.btn_edit_template.setVisible(self.current_folder is not None)
 
         base_dir = os.path.dirname(os.path.abspath(__file__))
         folder_icon = QIcon(os.path.join(base_dir, "icons", "folder.svg"))

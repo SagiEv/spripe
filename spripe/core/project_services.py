@@ -1,6 +1,7 @@
 """
 Module docstring.
 """
+
 import json
 import shutil
 import tempfile
@@ -15,6 +16,7 @@ from spripe.scripts.export_gif import export_gif
 
 class WorkspaceRegistry:
     """WorkspaceRegistry class."""
+
     def __init__(self, workspace_dir: str):
         """__init__ method."""
         self.workspace_dir = Path(workspace_dir)
@@ -82,6 +84,7 @@ class WorkspaceRegistry:
 
 class ProjectMetadataService:
     """ProjectMetadataService class."""
+
     def __init__(self, registry: WorkspaceRegistry):
         """__init__ method."""
         self.registry = registry
@@ -128,6 +131,7 @@ class ProjectMetadataService:
 
 class FileSystemService:
     """FileSystemService class."""
+
     def __init__(
         self, registry: WorkspaceRegistry, metadata_service: ProjectMetadataService
     ):
@@ -450,20 +454,34 @@ class FileSystemService:
                 )
                 export_name = f"{asset_name}_{animation_name}"
 
-                use_comp = compression_level is not None or (comp_folder.exists() and any(comp_folder.iterdir()))
+                use_comp = compression_level is not None or (
+                    comp_folder.exists() and any(comp_folder.iterdir())
+                )
                 src_folder = comp_folder if use_comp else norm_folder
 
                 if compression_level is not None:
                     # Apply on the fly compression
                     tmpdir = tempfile.mkdtemp()
                     fake_asset = Path(tmpdir) / asset_name
-                    fake_norm = fake_asset / Config.DIR_NORMALIZED_OUTPUT / f"{Config.PREFIX_NORMALIZED}{animation_name}"
+                    fake_norm = (
+                        fake_asset
+                        / Config.DIR_NORMALIZED_OUTPUT
+                        / f"{Config.PREFIX_NORMALIZED}{animation_name}"
+                    )
                     fake_norm.mkdir(parents=True)
                     for f in norm_folder.iterdir():
                         if f.is_file():
                             shutil.copy2(f, fake_norm / f.name)
-                    compress_asset(asset_dir=str(fake_asset), colors=compression_level, overwrite=True)
-                    src_folder = fake_asset / Config.DIR_COMPRESSED_OUTPUT / f"{Config.PREFIX_COMPRESSED}{animation_name}"
+                    compress_asset(
+                        asset_dir=str(fake_asset),
+                        colors=compression_level,
+                        overwrite=True,
+                    )
+                    src_folder = (
+                        fake_asset
+                        / Config.DIR_COMPRESSED_OUTPUT
+                        / f"{Config.PREFIX_COMPRESSED}{animation_name}"
+                    )
                     if not src_folder.exists() or not any(src_folder.iterdir()):
                         raise Exception("Compression failed during export.")
 
@@ -474,7 +492,9 @@ class FileSystemService:
 
                 if export_type == "GIF":
                     final_dest = dest / f"{export_name}.gif"
-                    success = export_gif(str(src_folder), str(final_dest), fps=gif_fps or 30)
+                    success = export_gif(
+                        str(src_folder), str(final_dest), fps=gif_fps or 30
+                    )
                     if not success:
                         raise Exception("GIF export failed.")
                 elif export_type == "ZIP Archive":
@@ -497,7 +517,12 @@ class FileSystemService:
                     )
 
                 def get_asset_source(anim):
-                    comp = project_path / asset_name / Config.DIR_COMPRESSED_OUTPUT / f"{Config.PREFIX_COMPRESSED}{anim}"
+                    comp = (
+                        project_path
+                        / asset_name
+                        / Config.DIR_COMPRESSED_OUTPUT
+                        / f"{Config.PREFIX_COMPRESSED}{anim}"
+                    )
                     if comp.exists() and any(comp.iterdir()):
                         return comp, True
                     return norm_output_dir / f"{Config.PREFIX_NORMALIZED}{anim}", False
@@ -508,7 +533,7 @@ class FileSystemService:
                         asset_tmp_dir.mkdir()
                         for d in norm_output_dir.iterdir():
                             if d.name.startswith(Config.PREFIX_NORMALIZED):
-                                anim = d.name[len(Config.PREFIX_NORMALIZED):]
+                                anim = d.name[len(Config.PREFIX_NORMALIZED) :]
                                 src, _ = get_asset_source(anim)
                                 shutil.copytree(
                                     src,

@@ -1,6 +1,7 @@
 """
 Module docstring.
 """
+
 import os
 import shutil
 import json
@@ -28,10 +29,54 @@ from PyQt6.QtCore import (
     QSequentialAnimationGroup,
     QEasingCurve,
 )
+import uuid
+from spripe.core.history import Command, CommandContext
+
+
+class TimelineFolderCommand(Command):
+    """Command that backs up the entire animation folder for timeline actions."""
+
+    def __init__(
+        self, description: str, context: CommandContext, timeline_widget, action_cb
+    ):
+        super().__init__(description, context)
+        self.timeline = timeline_widget
+        self.action_cb = action_cb
+        self.folder_path = timeline_widget.current_folder
+        self.backup_path = os.path.join(
+            timeline_widget.base_dir, "workspace", ".history", str(uuid.uuid4())
+        )
+        self.after_path = os.path.join(
+            timeline_widget.base_dir, "workspace", ".history", str(uuid.uuid4())
+        )
+
+        os.makedirs(os.path.dirname(self.backup_path), exist_ok=True)
+        # Backup before action
+        shutil.copytree(self.folder_path, self.backup_path)
+
+    def execute(self):
+        self.action_cb()
+        # Backup after action for redo
+        if os.path.exists(self.after_path):
+            shutil.rmtree(self.after_path)
+        shutil.copytree(self.folder_path, self.after_path)
+
+    def undo(self):
+        if os.path.exists(self.folder_path):
+            shutil.rmtree(self.folder_path)
+        shutil.copytree(self.backup_path, self.folder_path)
+        self.timeline.refresh_timeline()
+
+    def redo(self):
+        if os.path.exists(self.folder_path):
+            shutil.rmtree(self.folder_path)
+        shutil.copytree(self.after_path, self.folder_path)
+        self.timeline.refresh_timeline()
 
 
 class CustomListWidget(QListWidget):
     """CustomListWidget class."""
+
     order_changed = pyqtSignal()
     delete_requested = pyqtSignal()
     mark_to_fix_requested = pyqtSignal(bool)
@@ -114,6 +159,7 @@ class CustomListWidget(QListWidget):
 
 class FrameLoaderThread(QThread):
     """FrameLoaderThread class."""
+
     frames_loaded = pyqtSignal(list)
 
     def __init__(self, folder, files):
@@ -135,14 +181,24 @@ class FrameLoaderThread(QThread):
 
 class TimelineWidget(QWidget):
     """TimelineWidget class."""
+
     frame_selected = pyqtSignal(str)
     pinned_keyframe_updated = pyqtSignal(str)  # Path to pinned frame or empty string
 
-    def __init__(self, base_dir, settings_manager, parent=None):
+    def __init__(
+        self,
+        base_dir,
+        settings_manager,
+        history_manager=None,
+        get_context_cb=None,
+        parent=None,
+    ):
         """__init__ method."""
         super().__init__(parent)
         self.base_dir = base_dir
         self.settings_manager = settings_manager
+        self.history_manager = history_manager
+        self.get_context_cb = get_context_cb
         self.current_asset = None
         self.current_asset_path = None
         self.current_folder = None
@@ -544,73 +600,102 @@ class TimelineWidget(QWidget):
         )
 
         if reply == QMessageBox.StandardButton.Yes:
-            self.stop_anim()
-            for item in selected:
-                file_path = item.data(Qt.ItemDataRole.UserRole)
-                if os.path.exists(file_path):
-                    os.remove(file_path)
 
-            if self.current_folder:
-                import sys
+            def action():
+                self.stop_anim()
+                for item in selected:
+                    file_path = item.data(Qt.ItemDataRole.UserRole)
+                    if os.path.exists(file_path):
+                        os.remove(file_path)
 
-                if self.base_dir not in sys.path:
-                    sys.path.append(self.base_dir)
-                from spripe.scripts.rename_frames import rename_sequence
+                if self.current_folder:
+                    import sys
 
-                rename_sequence(self.current_folder)
+                    if self.base_dir not in sys.path:
+                        sys.path.append(self.base_dir)
+                    from spripe.scripts.rename_frames import rename_sequence
 
-            self.refresh_timeline()
-            self.frame_selected.emit("")
+                    rename_sequence(self.current_folder)
+
+                self.refresh_timeline()
+                self.frame_selected.emit("")
+
+            if self.history_manager and self.get_context_cb:
+                cmd = TimelineFolderCommand(
+                    "Delete Frames", self.get_context_cb(), self, action
+                )
+                self.history_manager.push(cmd)
+            else:
+                action()
 
     def reverse_sequence(self):
         """reverse_sequence method."""
         if not self.current_folder:
             return
-        self.stop_anim()
-        import sys
 
-        if self.base_dir not in sys.path:
-            sys.path.append(self.base_dir)
-        from spripe.scripts.reverse_frames import reverse_sequence
+        def action():
+            self.stop_anim()
+            import sys
 
-        reverse_sequence(self.current_folder)
-        self.refresh_timeline()
-        self.frame_selected.emit("")
+            if self.base_dir not in sys.path:
+                sys.path.append(self.base_dir)
+            from spripe.scripts.reverse_frames import reverse_sequence
+
+            reverse_sequence(self.current_folder)
+            self.refresh_timeline()
+            self.frame_selected.emit("")
+
+        if self.history_manager and self.get_context_cb:
+            cmd = TimelineFolderCommand(
+                "Reverse Frames", self.get_context_cb(), self, action
+            )
+            self.history_manager.push(cmd)
+        else:
+            action()
 
     def on_order_changed(self):
         """on_order_changed method."""
         if not self.current_folder:
             return
 
-        self.stop_anim()
+        def action():
+            self.stop_anim()
 
-        to_fix_list = set(self._load_to_fix_list())
+            to_fix_list = set(self._load_to_fix_list())
 
-        new_order_paths = []
-        for i in range(self.list_widget.count()):
-            item = self.list_widget.item(i)
-            new_order_paths.append(item.data(Qt.ItemDataRole.UserRole))
+            new_order_paths = []
+            for i in range(self.list_widget.count()):
+                item = self.list_widget.item(i)
+                new_order_paths.append(item.data(Qt.ItemDataRole.UserRole))
 
-        temp_paths = []
-        bad_temp_files = set()
-        for i, old_path in enumerate(new_order_paths):
-            filename = os.path.basename(old_path)
-            temp_path = os.path.join(self.current_folder, f"temp_{i}.png")
-            os.rename(old_path, temp_path)
-            temp_paths.append(temp_path)
-            if filename in to_fix_list:
-                bad_temp_files.add(temp_path)
+            temp_paths = []
+            bad_temp_files = set()
+            for i, old_path in enumerate(new_order_paths):
+                filename = os.path.basename(old_path)
+                temp_path = os.path.join(self.current_folder, f"temp_{i}.png")
+                os.rename(old_path, temp_path)
+                temp_paths.append(temp_path)
+                if filename in to_fix_list:
+                    bad_temp_files.add(temp_path)
 
-        new_bad_frames = []
-        for i, temp_path in enumerate(temp_paths):
-            final_filename = f"{i:04d}.png"
-            final_path = os.path.join(self.current_folder, final_filename)
-            os.rename(temp_path, final_path)
-            if temp_path in bad_temp_files:
-                new_bad_frames.append(final_filename)
+            new_bad_frames = []
+            for i, temp_path in enumerate(temp_paths):
+                final_filename = f"{i:04d}.png"
+                final_path = os.path.join(self.current_folder, final_filename)
+                os.rename(temp_path, final_path)
+                if temp_path in bad_temp_files:
+                    new_bad_frames.append(final_filename)
 
-        self._save_to_fix_list(new_bad_frames)
-        self.refresh_timeline()
+            self._save_to_fix_list(new_bad_frames)
+            self.refresh_timeline()
+
+        if self.history_manager and self.get_context_cb:
+            cmd = TimelineFolderCommand(
+                "Reorder Frames", self.get_context_cb(), self, action
+            )
+            self.history_manager.push(cmd)
+        else:
+            action()
 
     def _load_to_fix_list(self):
         if not self.current_folder:
@@ -639,42 +724,31 @@ class TimelineWidget(QWidget):
         if not selected:
             return
 
-        current_bad = set(self._load_to_fix_list())
-
-        changed = False
-        for item in selected:
-            file_path = item.data(Qt.ItemDataRole.UserRole)
-            filename = os.path.basename(file_path)
-            if is_bad:
-                if filename not in current_bad:
-                    current_bad.add(filename)
-                    changed = True
-            else:
-                if filename in current_bad:
-                    current_bad.remove(filename)
-                    changed = True
-
-        if changed:
-            self._save_to_fix_list(list(current_bad))
-
-            # Update icons in place without reloading all frames
+        def action():
+            current_bad = set(self._load_to_fix_list())
+            changed = False
             for item in selected:
                 file_path = item.data(Qt.ItemDataRole.UserRole)
                 filename = os.path.basename(file_path)
+                if is_bad:
+                    if filename not in current_bad:
+                        current_bad.add(filename)
+                        changed = True
+                else:
+                    if filename in current_bad:
+                        current_bad.remove(filename)
+                        changed = True
 
-                # Reload clean image
-                img = QImage(file_path).scaled(100, 100, Qt.AspectRatioMode.KeepAspectRatio)
-                pixmap = QPixmap.fromImage(img)
+            if changed:
+                self._save_to_fix_list(list(current_bad))
+                self.refresh_timeline()
 
-                if filename in current_bad:
-                    painter = QPainter(pixmap)
-                    pen = QPen(QColor(255, 0, 0))
-                    pen.setWidth(6)
-                    painter.setPen(pen)
-                    painter.drawRect(0, 0, pixmap.width() - 1, pixmap.height() - 1)
-                    painter.end()
-
-                item.setIcon(QIcon(pixmap))
+        if self.history_manager and self.get_context_cb:
+            desc = "Mark Frames 'To Fix'" if is_bad else "Unmark Frames 'To Fix'"
+            cmd = TimelineFolderCommand(desc, self.get_context_cb(), self, action)
+            self.history_manager.push(cmd)
+        else:
+            action()
 
     # --- Animation Player Methods ---
     def set_player_enabled(self, enabled):

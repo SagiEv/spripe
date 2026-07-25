@@ -1,6 +1,7 @@
 """
 Module docstring.
 """
+
 from typing import List, Optional
 
 from spripe.core.project_services import (

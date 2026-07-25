@@ -1,6 +1,7 @@
 """
 Module docstring.
 """
+
 import json
 import os
 from typing import List, Optional, Union
@@ -36,9 +37,7 @@ class AssetDashboardWidget(QWidget):
     action_compress_animation = pyqtSignal(
         str, str, object
     )  # proj, asset, anim (or list of anims)
-    action_export_gif = pyqtSignal(
-        str, str, str
-    )  # proj, asset, anim
+    action_export_gif = pyqtSignal(str, str, str)  # proj, asset, anim
     action_create_missing = pyqtSignal(str, str, str)  # proj, asset, anim
     action_new_animation = pyqtSignal(str, str)  # proj, asset
 
@@ -101,7 +100,9 @@ class AssetDashboardWidget(QWidget):
 
         self.anim_table = QTableWidget()
         self.anim_table.setColumnCount(4)
-        self.anim_table.setHorizontalHeaderLabels(["Animation Name", "Status", "Normalized Size", "Compressed Version"])
+        self.anim_table.setHorizontalHeaderLabels(
+            ["Animation Name", "Status", "Normalized Size", "Compressed Version"]
+        )
         self.anim_table.horizontalHeader().setSectionResizeMode(
             0, QHeaderView.ResizeMode.Stretch
         )
@@ -183,16 +184,31 @@ class AssetDashboardWidget(QWidget):
             def get_dir_size_str(path):
                 if not os.path.exists(path):
                     return ""
-                total_size = sum(os.path.getsize(os.path.join(path, f)) for f in os.listdir(path) if os.path.isfile(os.path.join(path, f)))
+                total_size = sum(
+                    os.path.getsize(os.path.join(path, f))
+                    for f in os.listdir(path)
+                    if os.path.isfile(os.path.join(path, f))
+                )
                 if total_size < 1024:
                     return f"{total_size} B"
                 if total_size < 1024 * 1024:
                     return f"{total_size / 1024:.1f} KB"
                 return f"{total_size / (1024 * 1024):.1f} MB"
 
-            asset_path = self.project_manager.registry.get_project_path(self.current_project) / self.current_asset
-            norm_dir = asset_path / Config.DIR_NORMALIZED_OUTPUT / f"{Config.PREFIX_NORMALIZED}{anim}"
-            comp_dir = asset_path / Config.DIR_COMPRESSED_OUTPUT / f"{Config.PREFIX_COMPRESSED}{anim}"
+            asset_path = (
+                self.project_manager.registry.get_project_path(self.current_project)
+                / self.current_asset
+            )
+            norm_dir = (
+                asset_path
+                / Config.DIR_NORMALIZED_OUTPUT
+                / f"{Config.PREFIX_NORMALIZED}{anim}"
+            )
+            comp_dir = (
+                asset_path
+                / Config.DIR_COMPRESSED_OUTPUT
+                / f"{Config.PREFIX_COMPRESSED}{anim}"
+            )
 
             norm_size_str = get_dir_size_str(norm_dir)
             comp_size_str = get_dir_size_str(comp_dir)
@@ -221,18 +237,28 @@ class AssetDashboardWidget(QWidget):
 
                 label = QLabel(size_text)
                 btn = QPushButton()
-                btn.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DirOpenIcon))
+                btn.setIcon(
+                    self.style().standardIcon(QStyle.StandardPixmap.SP_DirOpenIcon)
+                )
                 btn.setFixedSize(24, 24)
                 btn.setToolTip("Open Folder Location")
-                btn.setStyleSheet("QPushButton { border: none; background: transparent; font-size: 14px; } QPushButton:hover { background: #333; border-radius: 4px; }")
+                btn.setStyleSheet(
+                    "QPushButton { border: none; background: transparent; font-size: 14px; } QPushButton:hover { background: #333; border-radius: 4px; }"
+                )
 
                 # capture current path
                 path_to_open = str(dir_path)
-                btn.clicked.connect(lambda _, p=path_to_open: os.startfile(p) if hasattr(os, 'startfile') else None)
+                btn.clicked.connect(
+                    lambda _, p=path_to_open: (
+                        os.startfile(p) if hasattr(os, "startfile") else None
+                    )
+                )
 
                 layout.addWidget(label)
                 layout.addWidget(btn)
-                layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+                layout.setAlignment(
+                    Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+                )
 
                 item = QTableWidgetItem(size_text)
                 item.setForeground(Qt.GlobalColor.transparent)

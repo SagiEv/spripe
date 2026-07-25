@@ -1,6 +1,7 @@
 """
 Module docstring.
 """
+
 import os
 from PyQt6.QtWidgets import (
     QWidget,
@@ -21,7 +22,16 @@ from spripe.core.project_manager import ProjectManager
 
 class DraggableTreeWidget(QTreeWidget):
     """DraggableTreeWidget class."""
+
     itemMoved = pyqtSignal(object, object)  # dragged_item, new_parent_item
+    delete_requested = pyqtSignal()
+
+    def keyPressEvent(self, event):
+        """keyPressEvent method."""
+        if event.key() == Qt.Key.Key_Delete:
+            self.delete_requested.emit()
+        else:
+            super().keyPressEvent(event)
 
     def dropEvent(self, event):
         """dropEvent method."""
@@ -45,6 +55,7 @@ class AssetBrowser(QWidget):
     action_export_project = pyqtSignal(str)  # project_name
     action_remove_project = pyqtSignal(str)  # project_name
     action_create_folder = pyqtSignal(str)  # project_name
+    action_remove_folder = pyqtSignal(str, str)  # project, folder
 
     # Assets
     action_move_to_folder = pyqtSignal(str, str)  # project, asset
@@ -109,8 +120,28 @@ class AssetBrowser(QWidget):
         self.tree_widget.setDropIndicatorShown(True)
         self.tree_widget.setDragDropMode(QTreeWidget.DragDropMode.InternalMove)
         self.tree_widget.itemMoved.connect(self.on_item_moved)
+        self.tree_widget.delete_requested.connect(self.on_delete_requested)
 
         layout.addWidget(self.tree_widget)
+
+    def on_delete_requested(self):
+        """on_delete_requested method."""
+        selected = self.tree_widget.selectedItems()
+        if not selected:
+            return
+        data = selected[0].data(0, Qt.ItemDataRole.UserRole)
+        if not data:
+            return
+        item_type, proj, asset, anim, _ = data
+
+        if item_type == "project":
+            self.action_remove_project.emit(proj)
+        elif item_type == "folder":
+            self.action_remove_folder.emit(proj, asset)
+        elif item_type == "asset":
+            self.action_remove_asset.emit(proj, asset)
+        elif item_type == "animation":
+            self.action_remove_animation.emit(proj, asset, anim)
 
     def filter_tree(self, text: str) -> None:
         """Filters the tree items based on the search query."""
@@ -316,10 +347,7 @@ class AssetBrowser(QWidget):
             act_remove_folder = menu.addAction("Remove Folder")
             action = menu.exec(self.tree_widget.viewport().mapToGlobal(position))
             if action == act_remove_folder:
-                # We can just remove it from metadata, or just ignore for now since it's a virtual folder
-                QMessageBox.information(
-                    self, "Note", "To remove a folder, move all assets out of it."
-                )
+                self.action_remove_folder.emit(proj, asset)
 
         elif item_type == "asset":
             act_move_folder = menu.addAction("Move to Virtual Folder")

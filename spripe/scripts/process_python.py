@@ -1,6 +1,7 @@
 """
 Module docstring.
 """
+
 import cv2
 import numpy as np
 import argparse
@@ -10,6 +11,7 @@ import shutil
 
 def process_video(video_path, fps=12, use_ai=True, progress_callback=None):
     """process_video function."""
+
     def log(msg):
         """log method."""
         if progress_callback:

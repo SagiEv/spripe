@@ -1,6 +1,7 @@
 """
 Module docstring.
 """
+
 import os
 import cv2
 import numpy as np
@@ -33,10 +34,41 @@ from PyQt6.QtGui import (
     QBitmap,
 )
 from PyQt6.QtCore import Qt, QPoint, pyqtSignal, QRectF, QThread
+from spripe.core.history import Command, CommandContext
+
+
+class PaintCommand(Command):
+    """Command for painting operations on the canvas."""
+
+    def __init__(
+        self,
+        description: str,
+        context: CommandContext,
+        canvas,
+        old_pixmap: QPixmap,
+        new_pixmap: QPixmap,
+    ):
+        super().__init__(description, context)
+        self.canvas = canvas
+        self.old_pixmap = QPixmap(old_pixmap)
+        self.new_pixmap = QPixmap(new_pixmap)
+
+    def execute(self):
+        # Already executed by the user interaction
+        pass
+
+    def undo(self):
+        if self.canvas.pixmap_item:
+            self.canvas.pixmap_item.setPixmap(self.old_pixmap)
+
+    def redo(self):
+        if self.canvas.pixmap_item:
+            self.canvas.pixmap_item.setPixmap(self.new_pixmap)
 
 
 class GrabCutThread(QThread):
     """GrabCutThread class."""
+
     finished_signal = pyqtSignal(object)
     error_signal = pyqtSignal(str)
 
@@ -70,6 +102,7 @@ class GrabCutThread(QThread):
 
 class CanvasView(QGraphicsView):
     """CanvasView class."""
+
     color_picked = pyqtSignal(QColor)
     selection_changed = pyqtSignal(bool)
     grabcut_error = pyqtSignal(str)
@@ -117,6 +150,10 @@ class CanvasView(QGraphicsView):
         self.setStyleSheet("background-color: transparent; border: none;")
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setDragMode(QGraphicsView.DragMode.NoDrag)
+
+        self.history_manager = None
+        self.get_context_cb = None
+        self._pre_action_pixmap = None
 
     def load_image(self, path):
         """load_image method."""
@@ -205,7 +242,10 @@ class CanvasView(QGraphicsView):
         if not self.pixmap_item:
             return
 
-        if self.dragMode() == QGraphicsView.DragMode.ScrollHandDrag and event.button() == Qt.MouseButton.LeftButton:
+        if (
+            self.dragMode() == QGraphicsView.DragMode.ScrollHandDrag
+            and event.button() == Qt.MouseButton.LeftButton
+        ):
             super().mousePressEvent(event)
             return
 
@@ -219,6 +259,9 @@ class CanvasView(QGraphicsView):
 
         if event.button() == Qt.MouseButton.LeftButton:
             self.interaction_started.emit()
+            if self.pixmap_item:
+                self._pre_action_pixmap = QPixmap(self.pixmap_item.pixmap())
+
             scene_pos = self.mapToScene(event.pos())
             x, y = int(scene_pos.x()), int(scene_pos.y())
 
@@ -331,7 +374,10 @@ class CanvasView(QGraphicsView):
 
     def mouseReleaseEvent(self, event):
         """mouseReleaseEvent method."""
-        if self.dragMode() == QGraphicsView.DragMode.ScrollHandDrag and event.button() == Qt.MouseButton.LeftButton:
+        if (
+            self.dragMode() == QGraphicsView.DragMode.ScrollHandDrag
+            and event.button() == Qt.MouseButton.LeftButton
+        ):
             super().mouseReleaseEvent(event)
             return
         if event.button() == Qt.MouseButton.MiddleButton:
@@ -357,6 +403,17 @@ class CanvasView(QGraphicsView):
             elif self.current_tool == "grabcut":
                 self.drawing = False
                 self.apply_grabcut()
+
+            if self.history_manager and self.get_context_cb and self._pre_action_pixmap:
+                if self.current_tool in ["brush", "eraser"]:
+                    cmd = PaintCommand(
+                        f"{self.current_tool.capitalize()} Stroke",
+                        self.get_context_cb(),
+                        self,
+                        self._pre_action_pixmap,
+                        QPixmap(self.pixmap_item.pixmap()),
+                    )
+                    self.history_manager.push(cmd)
 
     def mouseDoubleClickEvent(self, event):
         """mouseDoubleClickEvent method."""
@@ -766,10 +823,15 @@ class CanvasView(QGraphicsView):
 
 class PainterWidget(QWidget):
     """PainterWidget class."""
-    def __init__(self, settings_manager, parent=None):
+
+    def __init__(
+        self, settings_manager, history_manager=None, get_context_cb=None, parent=None
+    ):
         """__init__ method."""
         super().__init__(parent)
         self.settings_manager = settings_manager
+        self.history_manager = history_manager
+        self.get_context_cb = get_context_cb
         self.icon_dir = os.path.join(os.path.dirname(__file__), "icons")
         self.init_ui()
 
@@ -987,6 +1049,8 @@ class PainterWidget(QWidget):
         container_layout.setContentsMargins(10, 10, 10, 10)
 
         self.canvas = CanvasView()
+        self.canvas.history_manager = self.history_manager
+        self.canvas.get_context_cb = self.get_context_cb
         self.canvas.color_picked.connect(self.set_color_from_eyedropper)
         self.canvas.selection_changed.connect(self.on_selection_changed)
         self.canvas.grabcut_error.connect(

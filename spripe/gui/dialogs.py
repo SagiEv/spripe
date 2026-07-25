@@ -1,6 +1,7 @@
 """
 Module docstring.
 """
+
 import os
 import shutil
 import json
@@ -33,6 +34,7 @@ from PyQt6.QtGui import QPixmap, QIcon, QDesktopServices
 
 class SettingsDialog(QDialog):
     """SettingsDialog class."""
+
     def __init__(self, settings_manager, parent=None):
         """__init__ method."""
         super().__init__(parent)
@@ -119,6 +121,12 @@ class SettingsDialog(QDialog):
         play_layout.addWidget(self.chk_autoplay)
         form_layout.addRow("Playback Defaults:", play_layout)
 
+        # Undo Limit
+        self.spin_undo = QSpinBox()
+        self.spin_undo.setRange(1, 20)
+        self.spin_undo.setValue(self.settings_manager.get("undo_limit", 10))
+        form_layout.addRow("Undo Limit:", self.spin_undo)
+
         layout.addLayout(form_layout)
 
         # Buttons
@@ -168,11 +176,13 @@ class SettingsDialog(QDialog):
         self.settings_manager.set(
             "play_autoplay_default", self.chk_autoplay.isChecked()
         )
+        self.settings_manager.set("undo_limit", self.spin_undo.value())
         self.accept()
 
 
 class NewProjectDialog(QDialog):
     """NewProjectDialog class."""
+
     def __init__(self, parent=None):
         """__init__ method."""
         super().__init__(parent)
@@ -212,6 +222,7 @@ class NewProjectDialog(QDialog):
 
 class NewAssetDialog(QDialog):
     """NewAssetDialog class."""
+
     def __init__(self, projects, current_project, parent=None):
         """__init__ method."""
         super().__init__(parent)
@@ -267,6 +278,7 @@ class NewAssetDialog(QDialog):
 
 class NewAnimationDialog(QDialog):
     """NewAnimationDialog class."""
+
     def __init__(
         self, projects, get_assets_callback, current_project, current_asset, parent=None
     ):
@@ -351,6 +363,7 @@ class NewAnimationDialog(QDialog):
 
 class ImportProjectDialog(QDialog):
     """ImportProjectDialog class."""
+
     def __init__(self, parent=None):
         """__init__ method."""
         super().__init__(parent)
@@ -410,6 +423,7 @@ class ImportProjectDialog(QDialog):
 
 class ImportAssetDialog(QDialog):
     """ImportAssetDialog class."""
+
     def __init__(self, projects, current_project, parent=None):
         """__init__ method."""
         super().__init__(parent)
@@ -484,6 +498,7 @@ class ImportAssetDialog(QDialog):
 
 class DeleteConfirmationDialog(QDialog):
     """DeleteConfirmationDialog class."""
+
     def __init__(self, item_name, is_project, parent=None):
         """__init__ method."""
         super().__init__(parent)
@@ -531,8 +546,11 @@ class DeleteConfirmationDialog(QDialog):
         """do_delete method."""
         self.delete_mode = "delete"
         self.accept()
+
+
 class CompressDialog(QDialog):
     """CompressDialog class."""
+
     def __init__(self, item_name, parent=None):
         """__init__ method."""
         super().__init__(parent)
@@ -548,7 +566,9 @@ class CompressDialog(QDialog):
         self.color_spin = QSpinBox()
         self.color_spin.setRange(2, 256)
         self.color_spin.setValue(256)
-        self.color_spin.setToolTip("Lower values reduce file size but reduce color quality.")
+        self.color_spin.setToolTip(
+            "Lower values reduce file size but reduce color quality."
+        )
         form.addRow("Number of Colors:", self.color_spin)
 
         layout.addLayout(form)
@@ -569,8 +589,10 @@ class CompressDialog(QDialog):
         self.colors = self.color_spin.value()
         self.accept()
 
+
 class ExportGifDialog(QDialog):
     """ExportGifDialog class."""
+
     def __init__(self, item_name, parent=None):
         """__init__ method."""
         super().__init__(parent)
@@ -629,6 +651,7 @@ class ExportGifDialog(QDialog):
 
 class ExportDialog(QDialog):
     """ExportDialog class."""
+
     def __init__(self, is_animation, item_name, parent=None):
         """__init__ method."""
         super().__init__(parent)
@@ -718,6 +741,7 @@ class ExportDialog(QDialog):
 
 class TemplateEditorDialog(QDialog):
     """TemplateEditorDialog class."""
+
     def __init__(self, template_lines, parent=None):
         """__init__ method."""
         super().__init__(parent)
@@ -905,8 +929,10 @@ class TemplateEditorDialog(QDialog):
                 return
         self.accept()
 
+
 class AboutDialog(QDialog):
     """AboutDialog class."""
+
     def __init__(self, parent=None):
         """__init__ method."""
         super().__init__(parent)
@@ -921,15 +947,17 @@ class AboutDialog(QDialog):
 
         # Logo
         logo_label = QLabel()
-        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(
-            os.path.abspath(__file__))))
+        base_dir = os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        )
         logo_path = os.path.join(base_dir, "logo.png")
         if os.path.exists(logo_path):
             pixmap = QPixmap(logo_path)
             pixmap = pixmap.scaled(
-                150, 150,
+                150,
+                150,
                 Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation
+                Qt.TransformationMode.SmoothTransformation,
             )
             logo_label.setPixmap(pixmap)
         else:
@@ -974,16 +1002,19 @@ class AboutDialog(QDialog):
 
         layout.addLayout(btn_layout)
 
+
 class TutorialsDialog(QDialog):
     """TutorialsDialog class."""
+
     def __init__(self, parent=None):
         """__init__ method."""
         super().__init__(parent)
         self.setWindowTitle("Tutorials & Documentation")
         self.resize(800, 600)
 
-        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(
-            os.path.abspath(__file__))))
+        base_dir = os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        )
         self.docs_dir = os.path.join(base_dir, "docs")
 
         self.sections = [
@@ -993,7 +1024,7 @@ class TutorialsDialog(QDialog):
             {"title": "Architecture", "file": "dev/architecture.md"},
             {"title": "Core Services", "file": "dev/core_services.md"},
             {"title": "Data Model", "file": "dev/data_model.md"},
-            {"title": "GUI Components", "file": "dev/gui_components.md"}
+            {"title": "GUI Components", "file": "dev/gui_components.md"},
         ]
         self.current_index = 0
 
@@ -1075,7 +1106,9 @@ class TutorialsDialog(QDialog):
                     content = f.read()
                 self.text_browser.setMarkdown(content)
             else:
-                self.text_browser.setPlainText(f"Could not find document at:\n{file_path}")
+                self.text_browser.setPlainText(
+                    f"Could not find document at:\n{file_path}"
+                )
 
             # Update buttons
             self.btn_prev.setEnabled(index > 0)

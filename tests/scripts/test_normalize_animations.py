@@ -61,7 +61,7 @@ def test_normalize_asset_end_to_end(tmp_path):
         bottom_padding=100,
     )
 
-    norm_dir = asset_dir / "normalized_output" / "normalized_idle"
+    norm_dir = asset_dir / "normalized_output" / "normalized_python_idle"
     assert norm_dir.exists()
 
     out_files = list(norm_dir.glob("*.png"))

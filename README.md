@@ -17,25 +17,26 @@
 
 ## ✨ Features
 
-- **🤖 AI Background Extraction:** Feed it an `.mp4` or a folder of PNGs, and Spripe uses `rembg` (U-Net based neural networks) to isolate the character, regardless of complex backgrounds, shadows, or gradients.
+- **🤖 AI Background Extraction:** Feed it an `.mp4` or a folder of PNGs, and Spripe uses `rembg` (U-Net based neural networks) to isolate the character, regardless of complex backgrounds, shadows, or gradients. Video processing runs entirely in a background QThread to keep the UI perfectly responsive.
 - **📐 Automatic Normalization:** Characters are automatically scaled to a consistent height and their feet are aligned to a standard baseline, ensuring fluid continuous animation transitions (e.g., from *idle* to *jump*).
 - **🎨 Advanced GUI Editor:** Includes a built-in PyQt6 painting environment tailored for sprite cleanup:
   - **GrabCut Quick Selection:** Drag a box, and OpenCV AI seamlessly cuts out artifacts.
   - **Magic Wand & Lassos:** Select regions with adjustable tolerances and morphological contour smoothing.
-  - **Non-Destructive Workflows:** Easily paint, erase alpha channels, soft-brush, and eyedrop directly over your frames.
+  - **Non-Destructive Workflows:** Easily paint, erase alpha channels, soft-brush, and eyedrop directly over your frames. Full `Ctrl+Z` Undo and `Ctrl+Y` Redo command history is supported.
   - **📌 Pinned Keyframe (Onion Skinning):** Pin any frame as a transparent overlay to perfectly align and compare positioning across different animations!
-- **🎞️ Timeline & Playback:** Manage your frames in a dedicated timeline. Drag-and-drop to reorder, delete multiple frames at once, preview animations in real-time at 12 FPS, or toggle "Boomerang" mode. Smooth asynchronous background loading keeps the GUI butter-smooth.
+- **🎞️ Timeline & Playback:** Manage your frames in a dedicated timeline. Drag-and-drop to reorder, delete multiple frames at once, preview animations in real-time at 12 FPS, or toggle "Boomerang" mode. You can also right-click frames to **Mark to Fix**, letting you easily track which frames need more polish.
 - **🗂️ Project Workspace:** Robust hierarchical organization (Projects -> Assets -> Animations). Effortlessly manage multiple characters and their movesets with full right-click context menu support.
-- **📦 Export System:** Instantly export single animations or entire assets into engine-ready structured folders or ZIP archives.
+- **📦 Export System:** Instantly export single animations or entire assets into engine-ready structured folders, `.gif` files, or ZIP archives. Godot engine users can natively adjust export PNG compression levels.
+- **🧠 Prompt Template Manager:** Manage your generative AI prompts through structured dictionaries and native clipboard integrations.
 
 ## 🛠️ The Workflow
 
 Spripe simplifies sprite generation into a highly automated 4-step process:
 
 1. **Import:** Use `File > New Project` or `File > Open Project` to load a lightweight `.spripe` file or directory. Then import your source `.mp4` files or PNG sequences.
-2. **AI Generation (`process_python.py`):** The engine processes the video, extracting frames at your desired FPS and stripping the background using AI. Results go to `raw_output/`.
+2. **AI Generation (`sequence_worker.py`):** The engine processes the video in the background, extracting frames at your desired FPS and stripping the background using AI. Results go to `out_{vidname}`.
 3. **Normalize (`normalize_animations.py`):** Run the normalizer (via the Pipeline Controls or right-click context menu) to scale the character and align their feet onto a unified 16:9 canvas space. Results go to `normalized_output/`.
-4. **Polish & Export (GUI):** Open the Spripe GUI to manually review the sequence. Use the timeline to delete bad frames, drag-and-drop to fix ordering, and use the Painter tools to erase lingering background artifacts. Finally, use `File > Save Project As...` to export your entire polished project into a compressed `.spripepack` archive, or export individual sequences!
+4. **Polish & Export (GUI):** Open the Spripe GUI to manually review the sequence. Use the timeline to tag or delete bad frames, drag-and-drop to fix ordering, and use the Painter tools to erase lingering background artifacts. Finally, use `File > Save Project As...` to export your entire polished project into a compressed `.spripepack` archive, or export individual sequences!
 
 ## 🚀 Installation & Setup
 

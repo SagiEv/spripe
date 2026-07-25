@@ -19,3 +19,10 @@ env/
 venv/
 .env
 .venv/
+
+# Build and Testing
+*.egg-info/
+.pytest_cache/
+.coverage
+build/
+dist/

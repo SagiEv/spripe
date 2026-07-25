@@ -23,3 +23,16 @@ SignalManager.get_instance().asset_created.emit(project_name, asset_name)
 sm = SignalManager.get_instance()
 sm.asset_created.connect(lambda proj, asset: self.refresh_view())
 ```
+
+## Testing & Dependencies
+
+Spripe uses a fully isolated unit testing environment via `pytest` to ensure core services remain stable. 
+
+To keep the final executable size small and prevent normal users from downloading unrelated development tools, all testing dependencies are strictly isolated in `pyproject.toml` using an optional dependency group (`[test]`). 
+
+- **End Users:** Running `pip install .` or using the pre-built `.exe` will **only** install `spripe` and its core dependencies (`PyQt6`, `opencv-python`, `numpy`).
+- **Developers/CI:** To run the test suite locally or on GitHub Actions, developers must explicitly install the testing group by running:
+  ```bash
+  pip install -e .[test]
+  ```
+  This will fetch `pytest`, `pytest-mock`, and `pytest-cov`.

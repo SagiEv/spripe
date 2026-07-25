@@ -18,6 +18,7 @@ dependencies = [
 cpu = ["rembg"]
 gpu = ["rembg[gpu]"]
 dev = ["mkdocs>=1.4.0", "mkdocs-material>=9.1.0"]
+test = ["pytest", "pytest-mock", "pytest-cov"]
 
 [project.scripts]
 spripe = "spripe.cli:main"

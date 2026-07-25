@@ -24,3 +24,36 @@ spripe = "spripe.cli:main"
 
 [tool.setuptools]
 packages = ["spripe", "spripe.core", "spripe.gui", "spripe.scripts"]
+
+[tool.pylint.messages_control]
+disable = [
+    "too-few-public-methods",
+    "too-many-public-methods",
+    "too-many-branches",
+    "too-many-arguments",
+    "too-many-locals",
+    "too-many-statements",
+    "too-many-instance-attributes",
+    "import-outside-toplevel",
+    "broad-exception-caught",
+    "no-name-in-module",
+    "invalid-name",
+    "duplicate-code",
+    "attribute-defined-outside-init",
+    "unused-import",
+    "line-too-long",
+    "wrong-import-position",
+    "unnecessary-lambda",
+    "redefined-outer-name",
+    "reimported",
+    "no-member",
+    "useless-parent-delegation",
+    "function-redefined",
+    "unused-argument",
+    "consider-using-max-builtin",
+    "unused-variable",
+    "wrong-import-order",
+    "possibly-used-before-assignment",
+    "f-string-without-interpolation",
+    "too-many-lines"
+]

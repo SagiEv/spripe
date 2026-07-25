@@ -1,9 +1,9 @@
 # User Tutorial
 
-Welcome to the **Spripe** tutorial! This guide will walk you through the end-to-end process of importing a raw animation and exporting a clean, normalized spritesheet.
+Welcome to the **spripe** tutorial! This guide will walk you through the end-to-end process of importing a raw animation and exporting a clean, normalized spritesheet.
 
 ## 1. Workspaces and Projects
-When you launch Spripe, you are working within a **Workspace**. 
+When you launch spripe, you are working within a **Workspace**. 
 - A Workspace holds multiple **Projects**. Think of a Project as a specific character or a specific level.
 - To create a new Project, click `File > New Project` and give it a name (e.g., `Ninja`).
 

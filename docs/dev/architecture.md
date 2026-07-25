@@ -1,10 +1,10 @@
 # Architecture Overview
 
-Spripe is built using PyQt6 for the GUI and standard Python libraries for file management and computer vision operations (via OpenCV and numpy).
+spripe is built using PyQt6 for the GUI and standard Python libraries for file management and computer vision operations (via OpenCV and numpy).
 
 ## High-Level MVC Structure
 
-While not strictly a traditional MVC pattern, Spripe separates concerns into:
+While not strictly a traditional MVC pattern, spripe separates concerns into:
 - **Models/Services (The Backend):** Housed in the `core/` directory. These services handle reading/writing metadata, manipulating the filesystem, and discovering projects.
 - **Controllers:** The `gui/action_controller.py` acts as a bridge for user intent, capturing menu clicks and context actions.
 - **Views:** The `gui/` directory contains all visual widgets, such as `timeline_widget.py` and `painter_widget.py`.

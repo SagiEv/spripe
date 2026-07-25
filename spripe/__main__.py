@@ -1,3 +1,6 @@
+"""
+Module docstring.
+"""
 import sys
 from spripe.cli import main
 

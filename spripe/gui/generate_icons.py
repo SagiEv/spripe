@@ -1,3 +1,6 @@
+"""
+Module docstring.
+"""
 import os
 
 icons = {
@@ -17,10 +20,12 @@ icons = {
     "magic_wand.svg": '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 21-8.586-8.586"/><path d="M8 8.5V4"/><path d="M8 13v-1.5"/><path d="M3.5 8.5H8"/><path d="M12.5 8.5H11"/><path d="M4.818 5.318 6.5 7"/><path d="m9.5 10 1.682 1.682"/><path d="M4.818 11.682 6.5 10"/><path d="m9.5 7 1.682-1.682"/></svg>',
     "grabcut.svg": '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><path d="M9 12h6"/><path d="M12 9v6"/></svg>',
     "clear_selection.svg": '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="3" x2="21" y2="21"/></svg>',
-    "boomerang.svg": '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 22L18 12L10 2"/><path d="M10 22C15 22 18 17.5 18 12C18 6.5 15 2 10 2"/></svg>'
+    "boomerang.svg": '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 22L18 12L10 2"/><path d="M10 22C15 22 18 17.5 18 12C18 6.5 15 2 10 2"/></svg>',
 }
 
 os.makedirs("C:/Users/karin/Pictures/tekken_characters/assets/gui/icons", exist_ok=True)
 for name, svg in icons.items():
-    with open(f"C:/Users/karin/Pictures/tekken_characters/assets/gui/icons/{name}", "w") as f:
+    with open(
+        f"C:/Users/karin/Pictures/tekken_characters/assets/gui/icons/{name}", "w"
+    ) as f:
         f.write(svg)

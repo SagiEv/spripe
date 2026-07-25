@@ -1,6 +1,6 @@
-# Welcome to Spripe
+# Welcome to spripe
 
-**Spripe** is a powerful pipeline tool designed specifically for managing, processing, and exporting 2D sprite animations. Whether you're working with video captures or raw PNG sequences, Spripe helps you normalize frames, pin keyframes for onion-skinning, and effortlessly export your assets to your game engine.
+**spripe** is a powerful pipeline tool designed specifically for managing, processing, and exporting 2D sprite animations. Whether you're working with video captures or raw PNG sequences, spripe helps you normalize frames, pin keyframes for onion-skinning, and effortlessly export your assets to your game engine.
 
 ## Getting Started
 

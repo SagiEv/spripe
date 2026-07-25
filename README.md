@@ -1,7 +1,6 @@
 <div align="center">
   <img src="logo.png" alt="Spripe Logo" width="150" />
-  
-  # Spripe
+
   
   **An Open-Source AI-Powered Asset & Sprite Generation Pipeline**
   
@@ -14,7 +13,7 @@
 
 ---
 
-**Spripe** is an end-to-end open-source toolkit designed to rapidly generate, process, normalize, and polish 2D sprites from video files. Built specifically for game developers and animators, it takes raw gameplay or animation videos and transforms them into game-ready, perfectly aligned transparent PNG sequences using advanced AI background removal.
+**spripe** is an end-to-end open-source toolkit designed to rapidly generate, process, normalize, and polish 2D sprites from video files. Built specifically for game developers and animators, it takes raw gameplay or animation videos and transforms them into game-ready, perfectly aligned transparent PNG sequences using advanced AI background removal.
 
 ## ✨ Features
 

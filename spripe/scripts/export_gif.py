@@ -25,13 +25,13 @@ def export_gif(
     if not frame_paths:
         log(f"No PNG frames found in {input_dir}")
         return False
-        
+
     log(f"Generating GIF from {len(frame_paths)} frames at {fps} fps...")
 
     frames = []
     try:
         for path in frame_paths:
-            # We open and copy to ensure we keep it in memory 
+            # We open and copy to ensure we keep it in memory
             # safely without holding file handles open forever
             with Image.open(path) as img:
                 if img.mode != 'RGBA':
@@ -40,7 +40,7 @@ def export_gif(
                 frames.append(img.copy())
 
         duration = int(1000 / fps) if fps > 0 else 33
-        
+
         frames[0].save(
             output_path,
             format="GIF",

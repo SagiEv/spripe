@@ -62,26 +62,26 @@ def compress_asset(
 
         os.makedirs(out_dir, exist_ok=True)
         frame_paths = sorted(glob.glob(os.path.join(anim_dir, "*.png")))
-        
+
         if not frame_paths:
             log(f"Skipping '{anim_name_str}': No PNGs found.")
             continue
-            
+
         log(f"Compressing '{anim_name_str}' to {colors} colors...")
 
         for frame_path in frame_paths:
             out_filename = os.path.basename(frame_path)
             out_path = os.path.join(out_dir, out_filename)
-            
+
             try:
                 with Image.open(frame_path) as img:
                     # Convert to RGBA if not already
                     if img.mode != 'RGBA':
                         img = img.convert('RGBA')
-                        
+
                     # Quantize image (reduces colors to save space)
                     quantized = img.quantize(colors=colors, method=Image.Quantize.FASTOCTREE)
-                    
+
                     # Save optimized
                     quantized.save(out_path, optimize=True, format="PNG")
             except Exception as e:

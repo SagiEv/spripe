@@ -28,9 +28,17 @@ sm.asset_created.connect(lambda proj, asset: self.refresh_view())
 
 Spripe uses a fully isolated unit testing environment via `pytest` to ensure core services remain stable. 
 
+### Test Coverage
+The testing suite is primarily focused on the `core/` backend logic to ensure stability without needing to instantiate GUI components:
+- **Project Services:** Testing workspace registry and metadata parsing (`test_project_services.py`).
+- **History (Undo/Redo):** Validating the ActionHistory stack, undo/redo states, and max limit behaviors (`test_history.py`).
+- **Generators:** Ensuring abstract generator interfaces and the LLM API integration logic behave correctly (`test_generators.py`).
+- **Managers:** Testing singleton state managers like `SettingsManager` and `PromptManager`.
+
+### Running Tests
 To keep the final executable size small and prevent normal users from downloading unrelated development tools, all testing dependencies are strictly isolated in `pyproject.toml` using an optional dependency group (`[test]`). 
 
-- **End Users:** Running `pip install .` or using the pre-built `.exe` will **only** install `spripe` and its core dependencies (`PyQt6`, `opencv-python`, `numpy`).
+- **End Users:** Running `pip install .` or using the pre-built `.exe` will **only** install `spripe` and its core dependencies (`PyQt6`, `opencv-python`, `numpy`, `Pillow`).
 - **Developers/CI:** To run the test suite locally or on GitHub Actions, developers must explicitly install the testing group by running:
   ```bash
   pip install -e .[test]

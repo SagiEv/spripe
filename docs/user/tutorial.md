@@ -6,6 +6,7 @@ Welcome to the **spripe** tutorial! This guide will walk you through the end-to-
 When you launch spripe, you are working within a **Workspace**. 
 - A Workspace holds multiple **Projects**. Think of a Project as a specific character or a specific level.
 - To create a new Project, click `File > New Project` and give it a name (e.g., `Ninja`).
+- You can load projects from anywhere on your computer using `File > Open Project...` which will read a `.spripe` project directory and optionally copy it into your workspace. Access your latest work via `File > Recent Projects`.
 
 ## 2. Managing Assets
 Inside a Project, you create **Assets**. An Asset might be `Idle_Animation` or `Attack_Combo`.
@@ -31,6 +32,5 @@ When you finish painting your mask or cropping a frame:
 
 ## 6. Exporting
 Once your animations are normalized:
-- Right-click the Animation (or the whole Asset) in the browser.
-- Select **Export**.
-- You can export as a ZIP archive or a direct folder copy, ready to be dropped into Unity, Godot, or Unreal Engine.
+- To export your entire workspace setup, go to `File > Save Project As...` and save it as a compressed `.spripepack`. This is great for backups and sharing!
+- Alternatively, right-click a specific Animation or Asset in the browser, select **Export**, and save it as a ZIP archive or folder copy, ready to be dropped into Unity, Godot, or Unreal Engine.

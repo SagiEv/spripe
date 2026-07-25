@@ -212,6 +212,13 @@ class AssetPipelineApp(QMainWindow):
         new_proj_action.triggered.connect(self.action_controller.show_new_project)
         file_menu.addAction(new_proj_action)
 
+        open_proj_action = QAction("Open Project...", self)
+        open_proj_action.triggered.connect(self.action_controller.show_open_project)
+        file_menu.addAction(open_proj_action)
+
+        self.recent_menu = file_menu.addMenu("Recent Projects")
+        self.populate_recent_projects()
+
         new_asset_action = QAction("New Asset", self)
         new_asset_action.triggered.connect(
             lambda: self.action_controller.show_new_asset()
@@ -226,9 +233,9 @@ class AssetPipelineApp(QMainWindow):
 
         file_menu.addSeparator()
 
-        save_proj_action = QAction("Save Project", self)
-        save_proj_action.triggered.connect(self.action_controller.placeholder_action)
-        file_menu.addAction(save_proj_action)
+        save_proj_as_action = QAction("Save Project As...", self)
+        save_proj_as_action.triggered.connect(self.action_controller.show_save_project_as)
+        file_menu.addAction(save_proj_as_action)
 
         file_menu.addSeparator()
 
@@ -305,6 +312,43 @@ class AssetPipelineApp(QMainWindow):
         about_action = QAction("About", self)
         about_action.triggered.connect(self.action_controller.placeholder_action)
         help_menu.addAction(about_action)
+
+    def populate_recent_projects(self):
+        """populate_recent_projects method."""
+        self.recent_menu.clear()
+        recent_projects = self.settings_manager.get_recent_projects()
+
+        if not recent_projects:
+            empty_action = QAction("No Recent Projects", self)
+            empty_action.setEnabled(False)
+            self.recent_menu.addAction(empty_action)
+            return
+
+        for path in recent_projects:
+            action = QAction(os.path.basename(path), self)
+            action.setToolTip(path)
+            action.triggered.connect(lambda checked, p=path: self.open_recent_project(p))
+            self.recent_menu.addAction(action)
+
+    def open_recent_project(self, path):
+        """open_recent_project method."""
+        if not os.path.exists(path):
+            QMessageBox.warning(self, "Error", f"Project path does not exist:\n{path}")
+            return
+
+        project_name = os.path.basename(path)
+        self.project_manager.registry.add_project(project_name, path)
+        self.asset_browser.refresh_assets()
+
+        # Select it
+        iterator = __import__('PyQt6.QtWidgets').QtWidgets.QTreeWidgetItemIterator(self.asset_browser.tree_widget)
+        while iterator.value():
+            item = iterator.value()
+            data = item.data(0, Qt.ItemDataRole.UserRole)
+            if data and data[0] == "project" and data[1] == project_name:
+                self.asset_browser.tree_widget.setCurrentItem(item)
+                break
+            iterator += 1
 
     def on_asset_selected_from_dashboard(self, proj, asset):
         """on_asset_selected_from_dashboard method."""

@@ -66,9 +66,89 @@ class ActionController:
 
     def show_import_project(self):
         """show_import_project method."""
-        dlg = ImportProjectDialog(self.mw)
-        if dlg.exec():
-            self.mw.project_manager.create_project(dlg.project_name, dlg.project_path)
+        file_path, _ = QFileDialog.getOpenFileName(
+            self.mw, "Import Project", "", "Spripe Pack (*.spripepack *.zip);;Spripe Project (*.spripe)"
+        )
+        if file_path:
+            if file_path.endswith('.spripepack') or file_path.endswith('.zip'):
+                try:
+                    self.mw.project_manager.fs.import_project(file_path)
+                    QMessageBox.information(self.mw, "Success", f"Project imported successfully.")
+                except Exception as e:
+                    QMessageBox.critical(self.mw, "Error", f"Failed to import project:\n{e}")
+            else:
+                QMessageBox.information(self.mw, "Import", "Use File -> Open Project to open a .spripe file directly, or manually copy the folder.")
+
+    def show_open_project(self):
+        """show_open_project method."""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self.mw, "Open Project", "", "Spripe Project (*.spripe *.json)"
+        )
+        if file_path:
+            from PyQt6.QtWidgets import QCheckBox
+            from spripe.core.settings_manager import SettingsManager
+
+            project_dir = os.path.dirname(file_path)
+            project_name = os.path.basename(project_dir)
+
+            # Ask if they want to copy to workspace
+            msg_box = QMessageBox(self.mw)
+            msg_box.setWindowTitle("Open Project")
+            msg_box.setText(f"Open project '{project_name}'?")
+            cb = QCheckBox("Copy to Workspace")
+            msg_box.setCheckBox(cb)
+            msg_box.setStandardButtons(QMessageBox.StandardButton.Open | QMessageBox.StandardButton.Cancel)
+
+            if msg_box.exec() == QMessageBox.StandardButton.Open:
+                if cb.isChecked():
+                    try:
+                        import shutil
+                        dest = os.path.join(self.mw.project_manager.workspace_dir, project_name)
+                        if os.path.exists(dest):
+                            QMessageBox.warning(self.mw, "Warning", "Project already exists in workspace.")
+                            return
+                        shutil.copytree(project_dir, dest)
+                        self.mw.project_manager.registry.add_project(project_name, dest)
+                    except Exception as e:
+                        QMessageBox.critical(self.mw, "Error", f"Failed to copy project:\n{e}")
+                        return
+                else:
+                    self.mw.project_manager.registry.add_project(project_name, project_dir)
+
+                self.mw.settings_manager.add_recent_project(project_dir)
+                self.mw.asset_browser.refresh_assets()
+                QMessageBox.information(self.mw, "Success", f"Project opened.")
+
+    def show_save_project_as(self):
+        """show_save_project_as method."""
+        if not self.mw.current_project:
+            QMessageBox.warning(self.mw, "Warning", "No project selected to save.")
+            return
+
+        file_path, selected_filter = QFileDialog.getSaveFileName(
+            self.mw, "Save Project As", self.mw.current_project,
+            "Spripe Project Folder (*.spripe);;Spripe Pack Archive (*.spripepack)"
+        )
+        if file_path:
+            try:
+                import shutil
+                src_path = self.mw.project_manager.get_project_path(self.mw.current_project)
+
+                if ".spripepack" in selected_filter:
+                    if file_path.endswith('.spripepack'):
+                        file_path = file_path[:-11] # remove extension for make_archive
+                    shutil.make_archive(file_path, "zip", src_path)
+                    if os.path.exists(file_path + ".zip"):
+                        os.rename(file_path + ".zip", file_path + ".spripepack")
+                else:
+                    if os.path.exists(file_path):
+                        QMessageBox.warning(self.mw, "Warning", "Destination already exists.")
+                        return
+                    shutil.copytree(src_path, file_path)
+
+                QMessageBox.information(self.mw, "Success", "Project saved successfully.")
+            except Exception as e:
+                QMessageBox.critical(self.mw, "Error", f"Failed to save project:\n{e}")
 
     def show_import_asset(self, preselected_proj=None):
         """show_import_asset method."""

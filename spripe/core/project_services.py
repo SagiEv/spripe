@@ -387,6 +387,25 @@ class FileSystemService:
         )
         return str(target_dir)
 
+    def import_project(self, archive_path: str, dest_dir: Optional[str] = None) -> str:
+        """import_project method."""
+        archive = Path(archive_path)
+        target_dir = Path(dest_dir) if dest_dir else self.registry.workspace_dir
+
+        project_name = archive.stem
+        extract_path = target_dir / project_name
+
+        counter = 1
+        while extract_path.exists():
+            project_name = f"{archive.stem}_{counter}"
+            extract_path = target_dir / project_name
+            counter += 1
+
+        shutil.unpack_archive(str(archive), str(extract_path))
+        self.registry.add_project(project_name, extract_path)
+        SignalManager.get_instance().project_created.emit(project_name)
+        return project_name
+
     def export_item(
         self,
         project_name: str,

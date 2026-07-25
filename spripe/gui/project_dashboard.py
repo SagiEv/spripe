@@ -99,7 +99,15 @@ class ProjectDashboardWidget(QWidget):
         """load_project method."""
         self.current_project = project_name
         self.current_folder = None
-        self.header.setText(f"Project Dashboard: {project_name}")
+
+        project_path = self.project_manager.get_project_path(project_name)
+        workspace_dir = self.project_manager.workspace_dir
+
+        ext_label = ""
+        if str(workspace_dir) not in project_path:
+            ext_label = " (External)"
+
+        self.header.setText(f"Project Dashboard: {project_name}{ext_label}")
         self.refresh_view()
 
     def load_folder(self, project_name, folder_name):

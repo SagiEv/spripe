@@ -33,3 +33,9 @@ Maintained by the `WorkspaceRegistry`. It serves as an index mapping project nam
 ### `project.json`
 Maintained by the `ProjectMetadataService`. It stores project-specific UI configurations, primarily the `virtual_folders` dictionary.
 - Virtual folders allow the `AssetBrowser` to visually group assets (e.g. putting `Asset_Idle` and `Asset_Run` under a `Movement` folder) without having to alter the physical directory structure on disk.
+
+## Project File Extensions
+
+To support robust sharing and external editing, Spripe utilizes custom extensions:
+- **`.spripe`**: Functionally identical to a standard project directory containing a `project.json`. It acts as a lightweight reference that Spripe can read from anywhere on disk without requiring the assets to be in the main workspace.
+- **`.spripepack`**: A fully self-contained, compressed `.zip` archive of a Spripe project. It bundles the `project.json` and all raw/normalized frames, making it ideal for backups or transferring across devices.

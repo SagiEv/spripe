@@ -32,10 +32,10 @@
 
 Spripe simplifies sprite generation into a highly automated 4-step process:
 
-1. **Import:** Use the GUI to create a Project and Asset, then import your source `.mp4` files or PNG sequences directly.
+1. **Import:** Use `File > New Project` or `File > Open Project` to load a lightweight `.spripe` file or directory. Then import your source `.mp4` files or PNG sequences.
 2. **AI Generation (`process_python.py`):** The engine processes the video, extracting frames at your desired FPS and stripping the background using AI. Results go to `raw_output/`.
 3. **Normalize (`normalize_animations.py`):** Run the normalizer (via the Pipeline Controls or right-click context menu) to scale the character and align their feet onto a unified 16:9 canvas space. Results go to `normalized_output/`.
-4. **Polish & Export (GUI):** Open the Spripe GUI to manually review the sequence. Use the timeline to delete bad frames, drag-and-drop to fix ordering, and use the Painter tools to erase lingering background artifacts. Finally, right-click to export your polished sprites to a `.zip` file!
+4. **Polish & Export (GUI):** Open the Spripe GUI to manually review the sequence. Use the timeline to delete bad frames, drag-and-drop to fix ordering, and use the Painter tools to erase lingering background artifacts. Finally, use `File > Save Project As...` to export your entire polished project into a compressed `.spripepack` archive, or export individual sequences!
 
 ## 🚀 Installation & Setup
 
@@ -69,10 +69,10 @@ spripe
 ```
 
 From the GUI, you can:
-- **Organize:** Use the left-hand Asset Browser to manage your projects (Right-click for options).
+- **Organize:** Use `File > Open Project` to read projects externally or copy them to your workspace. Quickly switch projects via `File > Recent Projects`. Use the Asset Browser to manage them.
 - **Process:** Trigger the AI Processing and Normalization scripts seamlessly in the background.
 - **Edit:** Preview and manually paint/edit frames. Use the "Pin Frame" feature to check alignments.
-- **Export:** Right click any Asset or Animation to package it into an engine-ready ZIP.
+- **Export:** Use `File > Save Project As...` to backup to a `.spripepack`, or right-click any Asset/Animation to export into an engine-ready ZIP.
 
 ### 2. Command Line Processing
 

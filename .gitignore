@@ -22,7 +22,10 @@ venv/
 
 # Build and Testing
 *.egg-info/
+*.egg-info
+*.egg
 .pytest_cache/
 .coverage
 build/
 dist/
+*.spec

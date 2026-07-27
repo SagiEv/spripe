@@ -1,6 +1,7 @@
 """
 Module docstring.
 """
+
 import sys
 import os
 import shutil
@@ -16,7 +17,7 @@ from PyQt6.QtWidgets import (
     QSplitter,
     QStackedWidget,
 )
-from PyQt6.QtGui import QAction, QIcon
+from PyQt6.QtGui import QAction, QIcon, QKeySequence
 from PyQt6.QtCore import Qt
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -31,10 +32,12 @@ from spripe.gui.action_controller import ActionController
 
 from spripe.core.settings_manager import SettingsManager
 from spripe.core.project_manager import ProjectManager
+from spripe.core.history import HistoryManager, CommandContext
 
 
 class AssetPipelineApp(QMainWindow):
     """AssetPipelineApp class."""
+
     def __init__(self, base_dir):
         """__init__ method."""
         super().__init__()
@@ -73,6 +76,12 @@ class AssetPipelineApp(QMainWindow):
         self.current_animation = None
         self.current_path = None
 
+        self.history_manager = HistoryManager(self.settings_manager)
+        self.history_manager.history_changed.connect(self._update_edit_menu)
+        self.history_manager.context_switch_requested.connect(
+            self._handle_context_switch
+        )
+
         # Load stylesheet
         stylesheet_path = os.path.join(os.path.dirname(__file__), "styles.qss")
         if os.path.exists(stylesheet_path):
@@ -89,8 +98,15 @@ class AssetPipelineApp(QMainWindow):
         # Initialize components
         self.asset_browser = AssetBrowser(self.project_manager)
         self.pipeline_controls = PipelineControls(self.base_dir)
-        self.painter_widget = PainterWidget(self.settings_manager)
-        self.timeline_widget = TimelineWidget(self.base_dir, self.settings_manager)
+        self.painter_widget = PainterWidget(
+            self.settings_manager, self.history_manager, self.get_current_context
+        )
+        self.timeline_widget = TimelineWidget(
+            self.base_dir,
+            self.settings_manager,
+            self.history_manager,
+            self.get_current_context,
+        )
 
         self.action_controller = ActionController(self)
 
@@ -120,6 +136,9 @@ class AssetPipelineApp(QMainWindow):
         )
         self.asset_browser.action_create_folder.connect(
             self.action_controller.show_create_folder
+        )
+        self.asset_browser.action_remove_folder.connect(
+            self.action_controller.remove_folder
         )
 
         self.asset_browser.action_new_animation.connect(
@@ -176,6 +195,9 @@ class AssetPipelineApp(QMainWindow):
         self.project_dashboard.asset_selected.connect(
             self.on_asset_selected_from_dashboard
         )
+        self.project_dashboard.action_generate_asset.connect(
+            self.action_controller.show_generation_dialog
+        )
 
         self.asset_dashboard = AssetDashboardWidget(self.project_manager)
         self.asset_dashboard.animation_selected.connect(
@@ -186,6 +208,18 @@ class AssetPipelineApp(QMainWindow):
         )
         self.asset_dashboard.action_normalize_animation.connect(
             self.action_controller.renormalize_animation
+        )
+        self.asset_dashboard.action_compress_animation.connect(
+            self.action_controller.compress_animation
+        )
+        self.asset_dashboard.action_export_gif.connect(
+            self.action_controller.export_gif_animation
+        )
+        self.asset_dashboard.action_regenerate_media.connect(
+            self.action_controller.show_generation_dialog
+        )
+        self.asset_dashboard.action_make_png_sequence.connect(
+            self.action_controller.make_png_sequence
         )
 
         self.right_panel = QStackedWidget()
@@ -212,6 +246,13 @@ class AssetPipelineApp(QMainWindow):
         new_proj_action.triggered.connect(self.action_controller.show_new_project)
         file_menu.addAction(new_proj_action)
 
+        open_proj_action = QAction("Open Project...", self)
+        open_proj_action.triggered.connect(self.action_controller.show_open_project)
+        file_menu.addAction(open_proj_action)
+
+        self.recent_menu = file_menu.addMenu("Recent Projects")
+        self.populate_recent_projects()
+
         new_asset_action = QAction("New Asset", self)
         new_asset_action.triggered.connect(
             lambda: self.action_controller.show_new_asset()
@@ -226,9 +267,11 @@ class AssetPipelineApp(QMainWindow):
 
         file_menu.addSeparator()
 
-        save_proj_action = QAction("Save Project", self)
-        save_proj_action.triggered.connect(self.action_controller.placeholder_action)
-        file_menu.addAction(save_proj_action)
+        save_proj_as_action = QAction("Save Project As...", self)
+        save_proj_as_action.triggered.connect(
+            self.action_controller.show_save_project_as
+        )
+        file_menu.addAction(save_proj_as_action)
 
         file_menu.addSeparator()
 
@@ -239,13 +282,19 @@ class AssetPipelineApp(QMainWindow):
         # --- Edit Menu ---
         edit_menu = menubar.addMenu("Edit")
 
-        undo_action = QAction("Undo", self)
-        undo_action.triggered.connect(self.action_controller.placeholder_action)
-        edit_menu.addAction(undo_action)
+        self.undo_action = QAction("Undo", self)
+        self.undo_action.setShortcut(QKeySequence("Ctrl+Z"))
+        self.undo_action.triggered.connect(self._do_undo)
+        edit_menu.addAction(self.undo_action)
 
-        redo_action = QAction("Redo", self)
-        redo_action.triggered.connect(self.action_controller.placeholder_action)
-        edit_menu.addAction(redo_action)
+        self.redo_action = QAction("Redo", self)
+        self.redo_action.setShortcuts(
+            [QKeySequence("Ctrl+Shift+Z"), QKeySequence("Ctrl+Y")]
+        )
+        self.redo_action.triggered.connect(self._do_redo)
+        edit_menu.addAction(self.redo_action)
+
+        self._update_edit_menu()
 
         edit_menu.addSeparator()
 
@@ -299,12 +348,64 @@ class AssetPipelineApp(QMainWindow):
         export_spritesheet.triggered.connect(self.action_controller.placeholder_action)
         export_menu.addAction(export_spritesheet)
 
+        # --- Tools Menu ---
+        tools_menu = menubar.addMenu("Tools")
+
+        generate_ai_action = QAction("Generate with AI...", self)
+        generate_ai_action.triggered.connect(self.action_controller.show_generation_dialog)
+        tools_menu.addAction(generate_ai_action)
+
         # --- Help Menu ---
         help_menu = menubar.addMenu("Help")
 
+        tutorials_action = QAction("Tutorials / Documentation", self)
+        tutorials_action.triggered.connect(self.action_controller.show_tutorials)
+        help_menu.addAction(tutorials_action)
+
         about_action = QAction("About", self)
-        about_action.triggered.connect(self.action_controller.placeholder_action)
+        about_action.triggered.connect(self.action_controller.show_about)
         help_menu.addAction(about_action)
+
+    def populate_recent_projects(self):
+        """populate_recent_projects method."""
+        self.recent_menu.clear()
+        recent_projects = self.settings_manager.get_recent_projects()
+
+        if not recent_projects:
+            empty_action = QAction("No Recent Projects", self)
+            empty_action.setEnabled(False)
+            self.recent_menu.addAction(empty_action)
+            return
+
+        for path in recent_projects:
+            action = QAction(os.path.basename(path), self)
+            action.setToolTip(path)
+            action.triggered.connect(
+                lambda checked, p=path: self.open_recent_project(p)
+            )
+            self.recent_menu.addAction(action)
+
+    def open_recent_project(self, path):
+        """open_recent_project method."""
+        if not os.path.exists(path):
+            QMessageBox.warning(self, "Error", f"Project path does not exist:\n{path}")
+            return
+
+        project_name = os.path.basename(path)
+        self.project_manager.registry.add_project(project_name, path)
+        self.asset_browser.refresh_assets()
+
+        # Select it
+        iterator = __import__("PyQt6.QtWidgets").QtWidgets.QTreeWidgetItemIterator(
+            self.asset_browser.tree_widget
+        )
+        while iterator.value():
+            item = iterator.value()
+            data = item.data(0, Qt.ItemDataRole.UserRole)
+            if data and data[0] == "project" and data[1] == project_name:
+                self.asset_browser.tree_widget.setCurrentItem(item)
+                break
+            iterator += 1
 
     def on_asset_selected_from_dashboard(self, proj, asset):
         """on_asset_selected_from_dashboard method."""
@@ -384,6 +485,51 @@ class AssetPipelineApp(QMainWindow):
             self.timeline_widget.load_path(self.current_path, name)
         elif self.pipeline_controls.current_asset:
             self.timeline_widget.load_asset(self.pipeline_controls.current_asset)
+
+    def _update_edit_menu(self):
+        """Update Undo/Redo actions state."""
+        self.undo_action.setEnabled(self.history_manager.can_undo())
+        self.undo_action.setText(self.history_manager.undo_text())
+        self.redo_action.setEnabled(self.history_manager.can_redo())
+        self.redo_action.setText(self.history_manager.redo_text())
+
+    def get_current_context(self) -> CommandContext:
+        """Get current context for command execution/undo/redo."""
+        return CommandContext(
+            project_name=self.current_project or "",
+            asset_name=self.current_asset or "",
+            animation_name=self.current_animation or "",
+        )
+
+    def _handle_context_switch(self, context: CommandContext):
+        """Handle a context switch requested by the HistoryManager."""
+        item_type = "project"
+        if context.animation_name:
+            item_type = "animation"
+        elif context.asset_name:
+            item_type = "asset"
+
+        path = ""
+        if context.project_name:
+            path = self.project_manager.get_project_path(context.project_name)
+            if context.asset_name:
+                path = os.path.join(path, context.asset_name)
+
+        self.on_item_selected(
+            item_type,
+            context.project_name,
+            context.asset_name,
+            context.animation_name,
+            path,
+        )
+
+    def _do_undo(self):
+        """Trigger undo."""
+        self.history_manager.undo(self.get_current_context())
+
+    def _do_redo(self):
+        """Trigger redo."""
+        self.history_manager.redo(self.get_current_context())
 
 
 def main():

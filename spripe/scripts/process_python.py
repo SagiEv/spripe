@@ -1,6 +1,7 @@
 """
 Module docstring.
 """
+
 import cv2
 import numpy as np
 import argparse
@@ -10,6 +11,7 @@ import shutil
 
 def process_video(video_path, fps=12, use_ai=True, progress_callback=None):
     """process_video function."""
+
     def log(msg):
         """log method."""
         if progress_callback:
@@ -22,11 +24,11 @@ def process_video(video_path, fps=12, use_ai=True, progress_callback=None):
     asset_dir = os.path.dirname(os.path.dirname(os.path.abspath(video_path)))
     if os.path.basename(os.path.dirname(os.path.abspath(video_path))) == "videos":
         # It's in the structured format
-        out_dir = os.path.join(asset_dir, "raw_output", f"out_python_{video_name}")
+        out_dir = os.path.join(asset_dir, "raw_output", f"out_{video_name}")
     else:
         # Fallback to old behavior
         base_dir = os.path.dirname(os.path.abspath(__file__))
-        out_dir = os.path.join(base_dir, "raw_output", f"out_python_{video_name}")
+        out_dir = os.path.join(base_dir, "raw_output", f"out_{video_name}")
 
     if os.path.exists(out_dir):
         shutil.rmtree(out_dir)

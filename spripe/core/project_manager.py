@@ -1,6 +1,7 @@
 """
 Module docstring.
 """
+
 from typing import List, Optional
 
 from spripe.core.project_services import (
@@ -161,10 +162,12 @@ class ProjectManager:
         animation_name: str,
         dest_path: str,
         export_type: str,
+        compression_level: int = None,
+        gif_fps: int = None,
     ):
         """export_item method."""
         self.fs.export_item(
-            project_name, asset_name, animation_name, dest_path, export_type
+            project_name, asset_name, animation_name, dest_path, export_type, compression_level, gif_fps
         )
 
     def get_project_metadata(self, project_name: str) -> dict:

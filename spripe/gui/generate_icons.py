@@ -1,6 +1,7 @@
 """
 Module docstring.
 """
+
 import os
 
 icons = {
@@ -26,6 +27,8 @@ icons = {
 os.makedirs("C:/Users/karin/Pictures/tekken_characters/assets/gui/icons", exist_ok=True)
 for name, svg in icons.items():
     with open(
-        f"C:/Users/karin/Pictures/tekken_characters/assets/gui/icons/{name}", "w", encoding="utf-8"
+        f"C:/Users/karin/Pictures/tekken_characters/assets/gui/icons/{name}",
+        "w",
+        encoding="utf-8",
     ) as f:
         f.write(svg)

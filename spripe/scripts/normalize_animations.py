@@ -1,6 +1,7 @@
 """
 Module docstring.
 """
+
 import cv2
 import numpy as np
 import os
@@ -31,6 +32,7 @@ def normalize_asset(
     progress_callback=None,
 ):
     """normalize_asset function."""
+
     def log(msg):
         """log method."""
         if progress_callback:
@@ -50,19 +52,19 @@ def normalize_asset(
         normalized_dir = os.path.join(base_dir, "normalized_output")
 
     anim_dirs = [
-        d for d in glob.glob(os.path.join(raw_dir, "out_python_*")) if os.path.isdir(d)
+        d for d in glob.glob(os.path.join(raw_dir, "out_*")) if os.path.isdir(d)
     ]
 
     if anim_name:
         anim_dirs = [
             d
             for d in anim_dirs
-            if os.path.basename(d).removeprefix("out_python_") in anim_name
+            if os.path.basename(d).removeprefix("out_") in anim_name
         ]
         overwrite = True  # Always overwrite if specifically requested
 
     if not anim_dirs:
-        log("No out_python_* directories found to process.")
+        log("No out_* directories found to process.")
         return
 
     # Set anchor to bottom-center of the new 16:9 canvas
@@ -70,7 +72,7 @@ def normalize_asset(
     target_anchor_y = height - bottom_padding
 
     for anim_dir in anim_dirs:
-        anim_name_str = os.path.basename(anim_dir).removeprefix("out_python_")
+        anim_name_str = os.path.basename(anim_dir).removeprefix("out_")
         out_dir = os.path.join(normalized_dir, f"normalized_{anim_name_str}")
 
         if os.path.exists(out_dir) and not overwrite:

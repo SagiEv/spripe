@@ -1,6 +1,7 @@
 """
 Module docstring.
 """
+
 import os
 import traceback
 from PyQt6.QtWidgets import QWidget, QHBoxLayout, QPushButton, QLabel, QMessageBox

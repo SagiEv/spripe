@@ -11,7 +11,9 @@ def main():
 
     # We include rembg as a hidden import as requested
     command = [
-        "pyinstaller",
+        sys.executable,
+        "-m",
+        "PyInstaller",
         "--name",
         "Spripe",
         "--windowed",

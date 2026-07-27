@@ -1,6 +1,7 @@
 """
 Module docstring.
 """
+
 import os
 import cv2
 import numpy as np
@@ -33,10 +34,41 @@ from PyQt6.QtGui import (
     QBitmap,
 )
 from PyQt6.QtCore import Qt, QPoint, pyqtSignal, QRectF, QThread
+from spripe.core.history import Command, CommandContext
+
+
+class PaintCommand(Command):
+    """Command for painting operations on the canvas."""
+
+    def __init__(
+        self,
+        description: str,
+        context: CommandContext,
+        canvas,
+        old_pixmap: QPixmap,
+        new_pixmap: QPixmap,
+    ):
+        super().__init__(description, context)
+        self.canvas = canvas
+        self.old_pixmap = QPixmap(old_pixmap)
+        self.new_pixmap = QPixmap(new_pixmap)
+
+    def execute(self):
+        # Already executed by the user interaction
+        pass
+
+    def undo(self):
+        if self.canvas.pixmap_item:
+            self.canvas.pixmap_item.setPixmap(self.old_pixmap)
+
+    def redo(self):
+        if self.canvas.pixmap_item:
+            self.canvas.pixmap_item.setPixmap(self.new_pixmap)
 
 
 class GrabCutThread(QThread):
     """GrabCutThread class."""
+
     finished_signal = pyqtSignal(object)
     error_signal = pyqtSignal(str)
 
@@ -70,6 +102,7 @@ class GrabCutThread(QThread):
 
 class CanvasView(QGraphicsView):
     """CanvasView class."""
+
     color_picked = pyqtSignal(QColor)
     selection_changed = pyqtSignal(bool)
     grabcut_error = pyqtSignal(str)
@@ -118,8 +151,25 @@ class CanvasView(QGraphicsView):
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setDragMode(QGraphicsView.DragMode.NoDrag)
 
+        self.history_manager = None
+        self.get_context_cb = None
+        self._pre_action_pixmap = None
+
     def load_image(self, path):
         """load_image method."""
+        if not path or not os.path.exists(path):
+            return
+
+        new_pixmap = QPixmap(path)
+
+        # Fast path for animation playback (same size)
+        if self.pixmap_item and self.original_pixmap and new_pixmap.size() == self.original_pixmap.size():
+            self.image_path = path
+            self.original_pixmap = new_pixmap
+            self.pixmap_item.setPixmap(self.original_pixmap)
+            self.clear_selection()
+            return
+
         # Preserve pinned keyframe state
         pinned_path = getattr(self, "_current_pinned_path", None)
         pinned_opacity = self.pinned_overlay.opacity() if self.pinned_overlay else 0.4
@@ -133,11 +183,8 @@ class CanvasView(QGraphicsView):
         self.original_pixmap = None
         self.pinned_overlay = None
 
-        if not path or not os.path.exists(path):
-            return
-
         self.image_path = path
-        self.original_pixmap = QPixmap(path)
+        self.original_pixmap = new_pixmap
         self.pixmap_item = self.scene.addPixmap(self.original_pixmap)
 
         self.selection_overlay = self.scene.addPixmap(
@@ -155,6 +202,8 @@ class CanvasView(QGraphicsView):
         # Restore pinned keyframe if it existed
         if pinned_path:
             self.load_pinned_keyframe(pinned_path, pinned_opacity)
+
+        self.setFocus()
 
     def resizeEvent(self, event):
         """resizeEvent method."""
@@ -203,6 +252,13 @@ class CanvasView(QGraphicsView):
         if not self.pixmap_item:
             return
 
+        if (
+            self.dragMode() == QGraphicsView.DragMode.ScrollHandDrag
+            and event.button() == Qt.MouseButton.LeftButton
+        ):
+            super().mousePressEvent(event)
+            return
+
         if event.button() == Qt.MouseButton.MiddleButton:
             self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
             fake_event = event.clone()
@@ -213,6 +269,9 @@ class CanvasView(QGraphicsView):
 
         if event.button() == Qt.MouseButton.LeftButton:
             self.interaction_started.emit()
+            if self.pixmap_item:
+                self._pre_action_pixmap = QPixmap(self.pixmap_item.pixmap())
+
             scene_pos = self.mapToScene(event.pos())
             x, y = int(scene_pos.x()), int(scene_pos.y())
 
@@ -325,6 +384,12 @@ class CanvasView(QGraphicsView):
 
     def mouseReleaseEvent(self, event):
         """mouseReleaseEvent method."""
+        if (
+            self.dragMode() == QGraphicsView.DragMode.ScrollHandDrag
+            and event.button() == Qt.MouseButton.LeftButton
+        ):
+            super().mouseReleaseEvent(event)
+            return
         if event.button() == Qt.MouseButton.MiddleButton:
             self.setDragMode(QGraphicsView.DragMode.NoDrag)
             self.update_cursor()
@@ -348,6 +413,17 @@ class CanvasView(QGraphicsView):
             elif self.current_tool == "grabcut":
                 self.drawing = False
                 self.apply_grabcut()
+
+            if self.history_manager and self.get_context_cb and self._pre_action_pixmap:
+                if self.current_tool in ["brush", "eraser"]:
+                    cmd = PaintCommand(
+                        f"{self.current_tool.capitalize()} Stroke",
+                        self.get_context_cb(),
+                        self,
+                        self._pre_action_pixmap,
+                        QPixmap(self.pixmap_item.pixmap()),
+                    )
+                    self.history_manager.push(cmd)
 
     def mouseDoubleClickEvent(self, event):
         """mouseDoubleClickEvent method."""
@@ -527,7 +603,9 @@ class CanvasView(QGraphicsView):
 
     def keyPressEvent(self, event):
         """keyPressEvent method."""
-        if event.key() == Qt.Key.Key_Delete or event.key() == Qt.Key.Key_Backspace:
+        if event.key() == Qt.Key.Key_Space and not event.isAutoRepeat():
+            self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
+        elif event.key() == Qt.Key.Key_Delete or event.key() == Qt.Key.Key_Backspace:
             # If drawing a polygon, delete the last point
             if (
                 self.drawing
@@ -744,13 +822,26 @@ class CanvasView(QGraphicsView):
         else:
             self.setCursor(Qt.CursorShape.CrossCursor)
 
+    def keyReleaseEvent(self, event):
+        """keyReleaseEvent method."""
+        if event.key() == Qt.Key.Key_Space and not event.isAutoRepeat():
+            self.setDragMode(QGraphicsView.DragMode.NoDrag)
+            self.update_cursor()
+        else:
+            super().keyReleaseEvent(event)
+
 
 class PainterWidget(QWidget):
     """PainterWidget class."""
-    def __init__(self, settings_manager, parent=None):
+
+    def __init__(
+        self, settings_manager, history_manager=None, get_context_cb=None, parent=None
+    ):
         """__init__ method."""
         super().__init__(parent)
         self.settings_manager = settings_manager
+        self.history_manager = history_manager
+        self.get_context_cb = get_context_cb
         self.icon_dir = os.path.join(os.path.dirname(__file__), "icons")
         self.init_ui()
 
@@ -845,19 +936,24 @@ class PainterWidget(QWidget):
             ],
             tool_btns,
         ):
+            btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
             btn.clicked.connect(lambda checked, n=name: self.set_tool(n))
             toolbar.addWidget(btn)
+
+        self.btn_clear_sel.setFocusPolicy(Qt.FocusPolicy.NoFocus)
 
         toolbar.addWidget(self.btn_clear_sel)
 
         # Soft Brush Toggle
         self.chk_soft = QCheckBox("Soft")
+        self.chk_soft.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.chk_soft.stateChanged.connect(self.toggle_soft_brush)
         toolbar.addWidget(self.chk_soft)
 
         self.btn_color = QPushButton("")
         self.btn_color.setFixedSize(30, 30)
         self.btn_color.setToolTip("Current Color")
+        self.btn_color.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.btn_color.clicked.connect(self.pick_color)
         toolbar.addWidget(self.btn_color)
 
@@ -867,6 +963,7 @@ class PainterWidget(QWidget):
         self.slider_size.setRange(1, 150)
         self.slider_size.setValue(10)
         self.slider_size.setFixedWidth(100)
+        self.slider_size.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.slider_size.valueChanged.connect(self.change_size)
         toolbar.addWidget(self.slider_size)
 
@@ -881,6 +978,7 @@ class PainterWidget(QWidget):
         self.slider_smooth.setRange(0, 15)
         self.slider_smooth.setValue(0)
         self.slider_smooth.setFixedWidth(80)
+        self.slider_smooth.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.slider_smooth.valueChanged.connect(self.apply_smoothing)
         smooth_layout.addWidget(self.slider_smooth)
         self.smooth_toolbar.hide()
@@ -894,6 +992,7 @@ class PainterWidget(QWidget):
         self.chk_onion = QCheckBox("📌 Onion:")
         default_onion_visible = self.settings_manager.get("onion_visible_default", True)
         self.chk_onion.setChecked(default_onion_visible)
+        self.chk_onion.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.chk_onion.toggled.connect(self.update_onion_opacity)
         onion_layout.addWidget(self.chk_onion)
 
@@ -903,6 +1002,7 @@ class PainterWidget(QWidget):
             self.settings_manager.get("onion_opacity_default", 40)
         )
         self.slider_onion.setFixedWidth(80)
+        self.slider_onion.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.slider_onion.valueChanged.connect(self.update_onion_opacity)
         onion_layout.addWidget(self.slider_onion)
 
@@ -911,6 +1011,7 @@ class PainterWidget(QWidget):
 
         self.btn_cancel = QPushButton("Cancel")
         self.btn_cancel.setIcon(self.get_icon("cancel"))
+        self.btn_cancel.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.btn_cancel.clicked.connect(self.cancel_edits)
         self.btn_cancel.setEnabled(False)
         toolbar.addWidget(self.btn_cancel)
@@ -918,6 +1019,7 @@ class PainterWidget(QWidget):
         self.btn_save = QPushButton("Save")
         self.btn_save.setIcon(self.get_icon("save"))
         self.btn_save.setObjectName("primaryAction")
+        self.btn_save.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.btn_save.clicked.connect(self.save_frame)
         self.btn_save.setEnabled(False)
         toolbar.addWidget(self.btn_save)
@@ -928,6 +1030,27 @@ class PainterWidget(QWidget):
         self.shortcut_save = QShortcut(QKeySequence("Ctrl+S"), self)
         self.shortcut_save.activated.connect(self.save_frame)
 
+        # Tool shortcuts
+        self.shortcut_brush = QShortcut(QKeySequence("B"), self)
+        self.shortcut_brush.activated.connect(lambda: self.set_tool("brush"))
+        self.shortcut_eraser = QShortcut(QKeySequence("E"), self)
+        self.shortcut_eraser.activated.connect(lambda: self.set_tool("eraser"))
+        self.shortcut_eyedropper = QShortcut(QKeySequence("I"), self)
+        self.shortcut_eyedropper.activated.connect(lambda: self.set_tool("eyedropper"))
+        self.shortcut_lasso = QShortcut(QKeySequence("L"), self)
+        self.shortcut_lasso.activated.connect(lambda: self.set_tool("lasso"))
+        self.shortcut_poly_lasso = QShortcut(QKeySequence("Shift+L"), self)
+        self.shortcut_poly_lasso.activated.connect(lambda: self.set_tool("poly_lasso"))
+        self.shortcut_magic_wand = QShortcut(QKeySequence("W"), self)
+        self.shortcut_magic_wand.activated.connect(lambda: self.set_tool("magic_wand"))
+        self.shortcut_grabcut = QShortcut(QKeySequence("Q"), self)
+        self.shortcut_grabcut.activated.connect(lambda: self.set_tool("grabcut"))
+
+        self.shortcut_deselect = QShortcut(QKeySequence("Ctrl+D"), self)
+        self.shortcut_deselect.activated.connect(self.clear_selection)
+        self.shortcut_esc = QShortcut(QKeySequence("Esc"), self)
+        self.shortcut_esc.activated.connect(self.clear_selection)
+
         layout.addLayout(toolbar)
 
         canvas_container = QWidget()
@@ -936,6 +1059,8 @@ class PainterWidget(QWidget):
         container_layout.setContentsMargins(10, 10, 10, 10)
 
         self.canvas = CanvasView()
+        self.canvas.history_manager = self.history_manager
+        self.canvas.get_context_cb = self.get_context_cb
         self.canvas.color_picked.connect(self.set_color_from_eyedropper)
         self.canvas.selection_changed.connect(self.on_selection_changed)
         self.canvas.grabcut_error.connect(

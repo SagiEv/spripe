@@ -825,12 +825,19 @@ class TimelineWidget(QWidget):
         """update_player_selection method."""
         if 0 <= self.current_frame_idx < self.list_widget.count():
             item = self.list_widget.item(self.current_frame_idx)
+
             # Temporarily block signals to avoid triggering a reload loop if we don't want it,
-            # but we DO want the painter to update! So let it emit.
+            # and to prevent the timeline's ExtendedSelection from causing bugs.
+            self.list_widget.blockSignals(True)
             self.list_widget.setCurrentItem(item)
+            self.list_widget.blockSignals(False)
+
             # Ensure it's visible in the scroll area
             self.list_widget.scrollToItem(item)
             self.update_player_label()
+
+            # Explicitly emit the frame to guarantee update
+            self.frame_selected.emit(item.data(Qt.ItemDataRole.UserRole))
 
     def update_player_label(self):
         """update_player_label method."""

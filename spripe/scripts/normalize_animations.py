@@ -21,6 +21,32 @@ def get_bounding_box(image):
     return x, y, w, h
 
 
+def get_feet_center(image, x, y, w, h):
+    """
+    Returns the horizontal center of mass for the bottom 15% of the character.
+    This acts as a stable 'Center of Balance' anchor beneath the feet, preventing
+    the torso from shifting if an arm is extended in the bounding box.
+    """
+    if image is None or image.shape[2] != 4 or h == 0:
+        return x + w / 2.0
+
+    alpha = image[:, :, 3]
+    y_max = y + h
+
+    # Isolate the bottom 15% of the bounding box
+    bottom_threshold = y_max - int(0.15 * h)
+
+    # Get all opaque pixels in that bottom region
+    bottom_region = alpha[bottom_threshold:y_max, x:x+w]
+    y_coords, x_coords = np.where(bottom_region > 0)
+
+    if len(x_coords) > 0:
+        # Calculate the mean X coordinate of the feet pixels (adding x offset back)
+        return x + np.mean(x_coords)
+
+    return x + w / 2.0
+
+
 def normalize_asset(
     asset_dir="",
     width=1920,
@@ -98,19 +124,20 @@ def normalize_asset(
             log(f"Skipping '{anim_name_str}': Empty first frame (no visible pixels).")
             continue
 
+        feet_center_x = get_feet_center(first_frame, x, y, w, h)
+
         # Calculate scale factor relative to the target height per animation
         scale_factor = char_height / h
         log(f"Processing '{anim_name_str}' with scale factor: {scale_factor:.4f}")
 
         # Calculate scaled dimensions and position based on THIS animation's first frame
-        scaled_x = x * scale_factor
+        scaled_feet_x = feet_center_x * scale_factor
         scaled_y = y * scale_factor
-        scaled_w = w * scale_factor
         scaled_h = h * scale_factor
 
-        # Calculate the top-left offset required to place the bottom-center of the character
+        # Calculate the top-left offset required to place the center of balance
         # at the target anchor coordinates.
-        offset_x = int(target_anchor_x - (scaled_x + scaled_w / 2.0))
+        offset_x = int(target_anchor_x - scaled_feet_x)
         offset_y = int(target_anchor_y - (scaled_y + scaled_h))
 
         os.makedirs(out_dir, exist_ok=True)

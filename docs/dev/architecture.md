@@ -8,6 +8,7 @@ While not strictly a traditional MVC pattern, spripe separates concerns into:
 - **Models/Services (The Backend):** Housed in the `core/` directory. These services handle reading/writing metadata, manipulating the filesystem, and discovering projects.
 - **Controllers:** The `gui/action_controller.py` acts as a bridge for user intent, capturing menu clicks and context actions.
 - **Views:** The `gui/` directory contains all visual widgets, such as `timeline_widget.py` and `painter_widget.py`.
+- **Scripts:** The `scripts/` directory houses standalone processing utilities. For example, `normalize_animations.py` uses a "Feet Anchoring" algorithm (calculating the center of mass for the bottom 15% of pixels) to guarantee perfectly stable sprite alignment across differing poses.
 
 ## The SignalManager (Event Bus)
 

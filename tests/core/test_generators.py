@@ -10,7 +10,7 @@ def test_base_generator_interface():
     """Verify that BaseGenerator enforces abstract methods."""
     class IncompleteGenerator(BaseGenerator):
         """A generator missing abstract methods for testing."""
-        pass
+
 
     with pytest.raises(TypeError):
         # Cannot instantiate abstract class with abstract methods

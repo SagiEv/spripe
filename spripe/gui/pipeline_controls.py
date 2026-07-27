@@ -104,6 +104,7 @@ class PipelineControls(QWidget):
             normalize_asset,
             "Normalizing animations...",
             asset_dir=self.current_asset_path,
+            overwrite=True,
         )
 
     def start_worker(self, func: Callable, status_text: str, **kwargs: Any) -> None:

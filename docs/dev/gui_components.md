@@ -12,7 +12,7 @@ A custom `QTreeWidget` that displays the Workspace hierarchy. It listens to `Sig
 A contextual panel that updates based on the currently selected Asset in the browser. It displays the status of animations (whether they are Raw, Normalized, or Missing) and provides buttons to trigger the normalization process.
 
 ## TimelineWidget
-Displays the sequence of PNG frames for a selected animation. It manages playback, looping logic, frame deletion, and the logic for pinning a keyframe (to be used as an onion skin).
+Displays the sequence of PNG frames for a selected animation. It manages playback, looping logic, frame deletion, and the logic for pinning a keyframe (to be used as an onion skin). Playback signals are fully decoupled from the UI selection state, ensuring robust and instantaneous canvas updates.
 
 ## PainterWidget
 A complex custom widget utilizing a `QGraphicsScene` (`CanvasView`). This is where the user draws masks over raw frames. It supports brush tools, lasso selections, magic wand contiguous selection, and integrates with OpenCV's GrabCut algorithm for smart background removal.

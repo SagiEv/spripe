@@ -2,7 +2,7 @@
 Module docstring.
 """
 
-from typing import List, Optional
+from typing import List, Optional, Callable
 
 from spripe.core.project_services import (
     WorkspaceRegistry,
@@ -164,10 +164,11 @@ class ProjectManager:
         export_type: str,
         compression_level: int = None,
         gif_fps: int = None,
+        progress_callback: Optional[Callable] = None,
     ):
         """export_item method."""
         self.fs.export_item(
-            project_name, asset_name, animation_name, dest_path, export_type, compression_level, gif_fps
+            project_name, asset_name, animation_name, dest_path, export_type, compression_level, gif_fps, progress_callback
         )
 
     def get_project_metadata(self, project_name: str) -> dict:

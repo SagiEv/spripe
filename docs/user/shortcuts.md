@@ -16,4 +16,5 @@ Spripe provides Photoshop-like keyboard shortcuts to make painting and editing f
 | **Save Frame** | `Ctrl+S` |
 | **Undo** | `Ctrl+Z` |
 | **Redo** | `Ctrl+Y` or `Ctrl+Shift+Z` |
+| **Mark/Unmark Frame** | `M` |
 | **View Shortcuts (Help)** | `F1` |

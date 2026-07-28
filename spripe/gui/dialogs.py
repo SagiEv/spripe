@@ -698,7 +698,7 @@ class ExportDialog(QDialog):
 
         parent_widget = self.parent()
         if parent_widget and hasattr(parent_widget, 'settings_manager'):
-            default_dir = parent_widget.settings_manager.get("default_export_dir", "")
+            default_dir = parent_widget.settings_manager.get("export_dir", "")
             if default_dir:
                 self.path_input.setText(default_dir)
 

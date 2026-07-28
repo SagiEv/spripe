@@ -24,9 +24,10 @@
   - **Magic Wand & Lassos:** Select regions with adjustable tolerances and morphological contour smoothing.
   - **Non-Destructive Workflows:** Easily paint, erase alpha channels, soft-brush, and eyedrop directly over your frames. Full `Ctrl+Z` Undo and `Ctrl+Y` Redo command history is supported.
   - **📌 Pinned Keyframe (Onion Skinning):** Pin any frame as a transparent overlay to perfectly align and compare positioning across different animations!
-- **🎞️ Timeline & Playback:** Manage your frames in a dedicated timeline. Drag-and-drop to reorder, delete multiple frames at once, preview animations in real-time at 12 FPS, or toggle "Boomerang" mode. You can also right-click frames to **Mark to Fix**, letting you easily track which frames need more polish.
-- **🗂️ Project Workspace:** Robust hierarchical organization (Projects -> Assets -> Animations). Effortlessly manage multiple characters and their movesets with full right-click context menu support.
-- **📦 Export System:** Instantly export single animations or entire assets into engine-ready structured folders, `.gif` files, or ZIP archives. Godot engine users can natively adjust export PNG compression levels.
+- **🎞️ Timeline & Playback:** Manage your frames in a dedicated timeline. Drag-and-drop to reorder, delete multiple frames at once, preview animations in real-time at 12 FPS, or toggle "Boomerang" mode. You can also right-click frames or press **`M`** to instantly **Mark to Fix**, letting you easily track which frames need more polish without any UI freezing.
+- **🗂️ Project Workspace:** Robust hierarchical organization (Projects -> Assets -> Animations). Effortlessly manage multiple characters and their movesets with full right-click context menu support. The Asset Dashboard also automatically refreshes file sizes instantly after compression.
+- **📦 Export System:** Instantly export single animations or entire assets into engine-ready structured folders, `.gif` files with customizable frame rates, or ZIP archives. Godot engine users can natively adjust export PNG compression levels.
+- **🔄 Background Task Indicator:** All long-running processes (Normalization, GIF export, Extraction) are tracked seamlessly via an animated spinner in the status bar so you always know what Spripe is doing behind the scenes.
 - **🧠 Prompt Template Manager:** Manage your generative AI prompts through structured dictionaries and native clipboard integrations.
 
 ## 🛠️ The Workflow

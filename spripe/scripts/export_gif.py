@@ -33,7 +33,7 @@ def export_gif(input_dir, output_path, fps=30, loop=0, progress_callback=None):
             with Image.open(path) as img:
                 if img.mode != "RGBA":
                     img = img.convert("RGBA")
-                
+
                 # Convert to palette mode preserving transparency
                 alpha = img.split()[3]
                 img_p = img.convert("P", palette=Image.ADAPTIVE, colors=255)

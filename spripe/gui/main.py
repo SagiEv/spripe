@@ -17,8 +17,8 @@ from PyQt6.QtWidgets import (
     QSplitter,
     QStackedWidget,
 )
-from PyQt6.QtGui import QAction, QIcon, QKeySequence
-from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QAction, QIcon, QKeySequence, QPainter, QPen, QColor
+from PyQt6.QtCore import Qt, QTimer
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -33,6 +33,68 @@ from spripe.gui.action_controller import ActionController
 from spripe.core.settings_manager import SettingsManager
 from spripe.core.project_manager import ProjectManager
 from spripe.core.history import HistoryManager, CommandContext
+
+
+class RotatingSpinner(QWidget):
+    """RotatingSpinner class."""
+
+    def __init__(self, parent=None):
+        """__init__ method."""
+        super().__init__(parent)
+        self.setFixedSize(16, 16)
+        self.angle = 0
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.rotate)
+        self.timer.start(50)
+
+    def rotate(self):
+        """rotate method."""
+        self.angle = (self.angle + 30) % 360
+        self.update()
+
+    def paintEvent(self, event):
+        """paintEvent method."""
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.translate(self.width() / 2, self.height() / 2)
+        painter.rotate(self.angle)
+        painter.translate(-self.width() / 2, -self.height() / 2)
+
+        pen = QPen(QColor("#0078D7"))  # Spripe blue
+        pen.setWidth(2)
+        painter.setPen(pen)
+        painter.drawArc(2, 2, 12, 12, 0, 270 * 16)
+        painter.end()
+
+
+class BackgroundTaskWidget(QWidget):
+    """BackgroundTaskWidget class."""
+
+    def __init__(self, parent=None):
+        """__init__ method."""
+        super().__init__(parent)
+        self.layout = QHBoxLayout(self)
+        self.layout.setContentsMargins(0, 0, 10, 0)
+        self.layout.setSpacing(5)
+
+        self.spinner = RotatingSpinner(self)
+        self.label = QLabel("", self)
+
+        self.layout.addWidget(self.spinner)
+        self.layout.addWidget(self.label)
+        self.hide()
+
+    def update_tasks(self, tasks: list):
+        """update_tasks method."""
+        if not tasks:
+            self.hide()
+            return
+
+        self.show()
+        if len(tasks) > 2:
+            self.label.setText(f"{len(tasks)} Tasks Running...")
+        else:
+            self.label.setText(", ".join(tasks))
 
 
 class AssetPipelineApp(QMainWindow):
@@ -110,11 +172,17 @@ class AssetPipelineApp(QMainWindow):
 
         self.action_controller = ActionController(self)
 
+        self.active_background_tasks = []
+        self.bg_task_widget = BackgroundTaskWidget(self)
+        self.statusBar().addPermanentWidget(self.bg_task_widget)
+
         self.init_menu_bar()
 
         # Connect signals
         self.asset_browser.item_selected.connect(self.on_item_selected)
         self.pipeline_controls.pipeline_finished.connect(self.on_pipeline_finished)
+        self.pipeline_controls.task_started.connect(self.add_background_task)
+        self.pipeline_controls.task_ended.connect(self.remove_background_task)
         self.timeline_widget.frame_selected.connect(self.painter_widget.load_frame)
         self.timeline_widget.pinned_keyframe_updated.connect(
             self.painter_widget.on_pinned_keyframe_updated
@@ -477,6 +545,17 @@ class AssetPipelineApp(QMainWindow):
         full_path = os.path.join(self.project_manager.get_project_path(proj), asset)
         self.on_item_selected("animation", proj, asset, anim, full_path)
 
+    def add_background_task(self, task_name: str):
+        """add_background_task method."""
+        self.active_background_tasks.append(task_name)
+        self.bg_task_widget.update_tasks(self.active_background_tasks)
+
+    def remove_background_task(self, task_name: str):
+        """remove_background_task method."""
+        if task_name in self.active_background_tasks:
+            self.active_background_tasks.remove(task_name)
+        self.bg_task_widget.update_tasks(self.active_background_tasks)
+
     def on_pipeline_finished(self):
         """on_pipeline_finished method."""
         # Refresh timeline when pipeline script (e.g. process or normalize) completes
@@ -485,6 +564,10 @@ class AssetPipelineApp(QMainWindow):
             self.timeline_widget.load_path(self.current_path, name)
         elif self.pipeline_controls.current_asset:
             self.timeline_widget.load_asset(self.pipeline_controls.current_asset)
+
+        # Refresh the asset dashboard to update sizes (e.g. after compression)
+        if hasattr(self, "asset_dashboard"):
+            self.asset_dashboard.refresh_view()
 
     def _update_edit_menu(self):
         """Update Undo/Redo actions state."""

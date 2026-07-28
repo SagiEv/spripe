@@ -6,7 +6,7 @@ import json
 import shutil
 import tempfile
 from pathlib import Path
-from typing import List, Dict, Optional, Set, Tuple
+from typing import List, Dict, Optional, Set, Tuple, Callable
 
 from spripe.core.config import Config
 from spripe.core.signal_manager import SignalManager
@@ -433,6 +433,7 @@ class FileSystemService:
         export_type: str,
         compression_level: Optional[int] = None,
         gif_fps: Optional[int] = None,
+        progress_callback: Optional[Callable] = None,
     ):
         """export_item method."""
         project_path = self.registry.get_project_path(project_name)
@@ -493,7 +494,7 @@ class FileSystemService:
                 if export_type == "GIF":
                     final_dest = dest / f"{export_name}.gif"
                     success = export_gif(
-                        str(src_folder), str(final_dest), fps=gif_fps or 30
+                        str(src_folder), str(final_dest), fps=gif_fps or 30, progress_callback=progress_callback
                     )
                     if not success:
                         raise Exception("GIF export failed.")

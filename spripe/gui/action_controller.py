@@ -25,6 +25,7 @@ from spripe.core.history import Command, CommandContext
 import uuid
 import shutil
 import copy
+from spripe.gui.pipeline_controls import WorkerThread
 
 
 class WorkspaceMetadataCommand(Command):
@@ -356,40 +357,62 @@ class ActionController:
         item_name = anim if is_animation else asset
         dlg = ExportDialog(is_animation, item_name, self.mw)
         if dlg.exec():
-            try:
-                self.mw.project_manager.export_item(
-                    proj,
-                    asset,
-                    anim if is_animation else None,
-                    dlg.dest_path,
-                    dlg.export_type,
-                    dlg.compression_level,
-                )
-                QMessageBox.information(
-                    self.mw, "Success", f"Successfully exported to:\n{dlg.dest_path}"
-                )
-            except Exception as e:
-                QMessageBox.critical(
-                    self.mw, "Export Failed", f"An error occurred during export:\n{e}"
-                )
+            if not hasattr(self, 'active_export_workers'):
+                self.active_export_workers = []
+
+            worker = WorkerThread(
+                self.mw.project_manager.export_item,
+                project_name=proj,
+                asset_name=asset,
+                animation_name=anim if is_animation else None,
+                dest_path=dlg.dest_path,
+                export_type=dlg.export_type,
+                compression_level=dlg.compression_level
+            )
+            worker.progress_signal.connect(lambda msg: self.mw.statusBar().showMessage(msg, 5000))
+
+            def on_finished(success, output):
+                if success:
+                    QMessageBox.information(self.mw, "Success", f"Successfully exported to:\n{dlg.dest_path}")
+                else:
+                    QMessageBox.critical(self.mw, "Export Failed", f"An error occurred during export:\n{output}")
+                if worker in self.active_export_workers:
+                    self.active_export_workers.remove(worker)
+
+            worker.finished_signal.connect(on_finished)
+            self.active_export_workers.append(worker)
+            self.mw.statusBar().showMessage(f"Starting export...", 5000)
+            worker.start()
 
     def show_export_project(self, proj_name):
         """show_export_project method."""
         dlg = ExportDialog(False, proj_name, self.mw)
         if dlg.exec():
-            try:
-                self.mw.project_manager.export_item(
-                    proj_name, None, None, dlg.dest_path, dlg.export_type
-                )
-                QMessageBox.information(
-                    self.mw,
-                    "Success",
-                    f"Exported project {proj_name} successfully to {dlg.dest_path}",
-                )
-            except Exception as e:
-                QMessageBox.critical(
-                    self.mw, "Export Failed", f"An error occurred during export:\n{e}"
-                )
+            if not hasattr(self, 'active_export_workers'):
+                self.active_export_workers = []
+
+            worker = WorkerThread(
+                self.mw.project_manager.export_item,
+                project_name=proj_name,
+                asset_name=None,
+                animation_name=None,
+                dest_path=dlg.dest_path,
+                export_type=dlg.export_type
+            )
+            worker.progress_signal.connect(lambda msg: self.mw.statusBar().showMessage(msg, 5000))
+
+            def on_finished(success, output):
+                if success:
+                    QMessageBox.information(self.mw, "Success", f"Exported project {proj_name} successfully to {dlg.dest_path}")
+                else:
+                    QMessageBox.critical(self.mw, "Export Failed", f"An error occurred during export:\n{output}")
+                if worker in self.active_export_workers:
+                    self.active_export_workers.remove(worker)
+
+            worker.finished_signal.connect(on_finished)
+            self.active_export_workers.append(worker)
+            self.mw.statusBar().showMessage(f"Starting project export...", 5000)
+            worker.start()
 
     def make_png_sequence(self, proj_name, asset_name, anim_names):
         """make_png_sequence method."""
@@ -684,27 +707,33 @@ class ActionController:
         """export_gif_animation method."""
         dlg = ExportGifDialog(anim, self.mw)
         if dlg.exec():
-            try:
-                self.mw.project_manager.export_item(
-                    proj,
-                    asset,
-                    anim,
-                    dlg.dest_path,
-                    "GIF",
-                    None,
-                    dlg.fps,
-                )
-                QMessageBox.information(
-                    self.mw,
-                    "Success",
-                    f"Successfully exported GIF to:\n{dlg.dest_path}",
-                )
-            except Exception as e:
-                QMessageBox.critical(
-                    self.mw,
-                    "Export Failed",
-                    f"An error occurred during GIF export:\n{e}",
-                )
+            if not hasattr(self, 'active_export_workers'):
+                self.active_export_workers = []
+
+            worker = WorkerThread(
+                self.mw.project_manager.export_item,
+                project_name=proj,
+                asset_name=asset,
+                animation_name=anim,
+                dest_path=dlg.dest_path,
+                export_type="GIF",
+                compression_level=None,
+                gif_fps=dlg.fps
+            )
+            worker.progress_signal.connect(lambda msg: self.mw.statusBar().showMessage(msg, 5000))
+
+            def on_finished(success, output):
+                if success:
+                    QMessageBox.information(self.mw, "Success", f"Successfully exported GIF to:\n{dlg.dest_path}")
+                else:
+                    QMessageBox.critical(self.mw, "Export Failed", f"An error occurred during GIF export:\n{output}")
+                if worker in self.active_export_workers:
+                    self.active_export_workers.remove(worker)
+
+            worker.finished_signal.connect(on_finished)
+            self.active_export_workers.append(worker)
+            self.mw.statusBar().showMessage(f"Starting GIF export...", 5000)
+            worker.start()
 
     def show_generation_dialog(self, metadata=None):
         """show_generation_dialog method."""

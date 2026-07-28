@@ -665,6 +665,7 @@ class ExportDialog(QDialog):
         self.export_type = "Folder"
         self.dest_path = ""
         self.compression_level = None
+        self.fps = 12
         self.init_ui()
 
     def init_ui(self):
@@ -673,7 +674,8 @@ class ExportDialog(QDialog):
         form = QFormLayout()
 
         self.type_combo = QComboBox()
-        self.type_combo.addItems(["Folder (Godot/Engine)", "ZIP Archive"])
+        self.type_combo.addItems(["Folder (Godot/Engine)", "ZIP Archive", "GIF"])
+        self.type_combo.currentTextChanged.connect(self.toggle_format)
         form.addRow("Format:", self.type_combo)
 
         self.compress_cb = QCheckBox("Compress PNGs")
@@ -693,12 +695,33 @@ class ExportDialog(QDialog):
         path_layout = QHBoxLayout()
         self.path_input = QLineEdit()
         self.path_input.setPlaceholderText("Select destination directory...")
+
+        parent_widget = self.parent()
+        if parent_widget and hasattr(parent_widget, 'settings_manager'):
+            default_dir = parent_widget.settings_manager.get("export_dir", "")
+            if default_dir:
+                self.path_input.setText(default_dir)
+
         path_btn = QPushButton("Browse")
         path_btn.clicked.connect(self.browse_path)
         path_layout.addWidget(self.path_input)
         path_layout.addWidget(path_btn)
-
         form.addRow("Destination:", path_layout)
+
+        self.fps_spin = QSpinBox()
+        self.fps_spin.setRange(1, 60)
+        self.fps_spin.setValue(12)
+        self.fps_label = QLabel("Frame Rate (FPS):")
+
+        self.fps_container = QWidget()
+        fps_layout = QHBoxLayout(self.fps_container)
+        fps_layout.setContentsMargins(0, 0, 0, 0)
+        fps_layout.addWidget(QLabel("GIF Settings:"))
+        fps_layout.addWidget(self.fps_label)
+        fps_layout.addWidget(self.fps_spin)
+
+        self.fps_container.setVisible(False)
+        form.addRow(self.fps_container)
         layout.addLayout(form)
 
         btn_layout = QHBoxLayout()
@@ -717,6 +740,11 @@ class ExportDialog(QDialog):
         """toggle_compression method."""
         self.color_spin.setEnabled(state == Qt.CheckState.Checked.value)
 
+    def toggle_format(self, text):
+        """toggle_format method."""
+        is_gif = "GIF" in text
+        self.fps_container.setVisible(is_gif)
+
     def browse_path(self):
         """browse_path method."""
         dir_path = QFileDialog.getExistingDirectory(self, "Select Destination Folder")
@@ -730,13 +758,18 @@ class ExportDialog(QDialog):
             return
 
         self.dest_path = self.path_input.text().strip()
-        self.export_type = (
-            "ZIP Archive" if "ZIP" in self.type_combo.currentText() else "Folder"
-        )
+        current_text = self.type_combo.currentText()
+        if "ZIP" in current_text:
+            self.export_type = "ZIP Archive"
+        elif "GIF" in current_text:
+            self.export_type = "GIF"
+        else:
+            self.export_type = "Folder"
         if self.compress_cb.isChecked():
             self.compression_level = self.color_spin.value()
         else:
             self.compression_level = None
+        self.fps = self.fps_spin.value()
         self.accept()
 
 

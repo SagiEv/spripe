@@ -40,6 +40,8 @@ class PipelineControls(QWidget):
     """UI widget providing buttons to run background pipeline scripts on selected assets."""
 
     pipeline_finished = pyqtSignal()  # Emitted when a script finishes to refresh UI
+    task_started = pyqtSignal(str)
+    task_ended = pyqtSignal(str)
 
     def __init__(self, base_dir: str, parent: Optional[QWidget] = None):
         """__init__ method."""
@@ -113,6 +115,9 @@ class PipelineControls(QWidget):
             QMessageBox.warning(self, "Warning", "A process is already running.")
             return
 
+        self.current_task_name = status_text
+        self.task_started.emit(self.current_task_name)
+
         self.status_label.setText(status_text)
         self.btn_process.setEnabled(False)
         self.btn_normalize.setEnabled(False)
@@ -142,3 +147,6 @@ class PipelineControls(QWidget):
         else:
             self.status_label.setText("Error during execution.")
             QMessageBox.critical(self, "Error", f"Script failed:\n{output[-800:]}")
+
+        if hasattr(self, 'current_task_name'):
+            self.task_ended.emit(self.current_task_name)

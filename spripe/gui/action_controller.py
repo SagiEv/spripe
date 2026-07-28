@@ -367,11 +367,15 @@ class ActionController:
                 animation_name=anim if is_animation else None,
                 dest_path=dlg.dest_path,
                 export_type=dlg.export_type,
-                compression_level=dlg.compression_level
+                compression_level=dlg.compression_level,
+                gif_fps=getattr(dlg, 'fps', 12)
             )
             worker.progress_signal.connect(lambda msg: self.mw.statusBar().showMessage(msg, 5000))
 
+            task_name = f"Exporting {item_name}..."
+
             def on_finished(success, output):
+                self.mw.remove_background_task(task_name)
                 if success:
                     QMessageBox.information(self.mw, "Success", f"Successfully exported to:\n{dlg.dest_path}")
                 else:
@@ -382,6 +386,7 @@ class ActionController:
             worker.finished_signal.connect(on_finished)
             self.active_export_workers.append(worker)
             self.mw.statusBar().showMessage(f"Starting export...", 5000)
+            self.mw.add_background_task(task_name)
             worker.start()
 
     def show_export_project(self, proj_name):
@@ -397,11 +402,15 @@ class ActionController:
                 asset_name=None,
                 animation_name=None,
                 dest_path=dlg.dest_path,
-                export_type=dlg.export_type
+                export_type=dlg.export_type,
+                gif_fps=getattr(dlg, 'fps', 12)
             )
             worker.progress_signal.connect(lambda msg: self.mw.statusBar().showMessage(msg, 5000))
 
+            task_name = f"Exporting Project {proj_name}..."
+
             def on_finished(success, output):
+                self.mw.remove_background_task(task_name)
                 if success:
                     QMessageBox.information(self.mw, "Success", f"Exported project {proj_name} successfully to {dlg.dest_path}")
                 else:
@@ -412,6 +421,7 @@ class ActionController:
             worker.finished_signal.connect(on_finished)
             self.active_export_workers.append(worker)
             self.mw.statusBar().showMessage(f"Starting project export...", 5000)
+            self.mw.add_background_task(task_name)
             worker.start()
 
     def make_png_sequence(self, proj_name, asset_name, anim_names):
@@ -430,7 +440,10 @@ class ActionController:
 
         worker.progress_signal.connect(lambda msg: self.mw.statusBar().showMessage(msg, 5000))
 
+        task_name = f"Extracting {len(anim_names)} PNG sequence(s)..."
+
         def on_finished():
+            self.mw.remove_background_task(task_name)
             self.mw.statusBar().showMessage(f"PNG sequence extraction finished for {len(anim_names)} animation(s).", 5000)
             self.mw.asset_dashboard.refresh_view()
             if worker in self.active_sequence_workers:
@@ -438,6 +451,7 @@ class ActionController:
             QMessageBox.information(self.mw, "Extraction Complete", f"Successfully extracted PNG sequences for {len(anim_names)} animation(s).")
 
         def on_error(err):
+            self.mw.remove_background_task(task_name)
             self.mw.statusBar().showMessage("PNG extraction error.", 5000)
             QMessageBox.critical(self.mw, "Error", f"Failed to extract PNG sequence:\n{err}")
             if worker in self.active_sequence_workers:
@@ -447,9 +461,9 @@ class ActionController:
         worker.error_signal.connect(on_error)
 
         self.active_sequence_workers.append(worker)
-        worker.start()
-
         self.mw.statusBar().showMessage(f"Starting PNG sequence extraction for {len(anim_names)} animation(s)...", 5000)
+        self.mw.add_background_task(task_name)
+        worker.start()
 
     def show_create_folder(self, proj_name):
         """show_create_folder method."""
@@ -722,7 +736,10 @@ class ActionController:
             )
             worker.progress_signal.connect(lambda msg: self.mw.statusBar().showMessage(msg, 5000))
 
+            task_name = f"Exporting GIF {anim}..."
+
             def on_finished(success, output):
+                self.mw.remove_background_task(task_name)
                 if success:
                     QMessageBox.information(self.mw, "Success", f"Successfully exported GIF to:\n{dlg.dest_path}")
                 else:
@@ -733,6 +750,7 @@ class ActionController:
             worker.finished_signal.connect(on_finished)
             self.active_export_workers.append(worker)
             self.mw.statusBar().showMessage(f"Starting GIF export...", 5000)
+            self.mw.add_background_task(task_name)
             worker.start()
 
     def show_generation_dialog(self, metadata=None):

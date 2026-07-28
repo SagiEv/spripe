@@ -80,6 +80,7 @@ class CustomListWidget(QListWidget):
     order_changed = pyqtSignal()
     delete_requested = pyqtSignal()
     mark_to_fix_requested = pyqtSignal(bool)
+    toggle_mark_requested = pyqtSignal()
 
     def __init__(self, parent=None):
         """__init__ method."""
@@ -137,6 +138,8 @@ class CustomListWidget(QListWidget):
         """keyPressEvent method."""
         if event.key() == Qt.Key.Key_Delete:
             self.delete_requested.emit()
+        elif event.key() == Qt.Key.Key_M:
+            self.toggle_mark_requested.emit()
         else:
             super().keyPressEvent(event)
 
@@ -314,6 +317,7 @@ class TimelineWidget(QWidget):
         self.list_widget.itemSelectionChanged.connect(self.on_selection_changed)
         self.list_widget.delete_requested.connect(self.delete_selected)
         self.list_widget.mark_to_fix_requested.connect(self._on_mark_frames_requested)
+        self.list_widget.toggle_mark_requested.connect(self._on_toggle_mark_requested)
 
         # Loading Overlay
         self.loading_widget = QWidget()
@@ -719,6 +723,31 @@ class TimelineWidget(QWidget):
         except Exception:
             pass
 
+    def _update_item_icon(self, item, is_bad):
+        file_path = item.data(Qt.ItemDataRole.UserRole)
+        img = QImage(file_path).scaled(100, 100, Qt.AspectRatioMode.KeepAspectRatio)
+        pixmap = QPixmap.fromImage(img)
+
+        if is_bad:
+            painter = QPainter(pixmap)
+            pen = QPen(QColor(255, 0, 0))
+            pen.setWidth(6)
+            painter.setPen(pen)
+            painter.drawRect(0, 0, pixmap.width() - 1, pixmap.height() - 1)
+            painter.end()
+
+        item.setIcon(QIcon(pixmap))
+
+    def _on_toggle_mark_requested(self):
+        selected = self.list_widget.selectedItems()
+        if not selected:
+            return
+
+        current_bad = set(self._load_to_fix_list())
+        all_marked = all(os.path.basename(item.data(Qt.ItemDataRole.UserRole)) in current_bad for item in selected)
+
+        self._on_mark_frames_requested(not all_marked)
+
     def _on_mark_frames_requested(self, is_bad):
         selected = self.list_widget.selectedItems()
         if not selected:
@@ -734,14 +763,15 @@ class TimelineWidget(QWidget):
                     if filename not in current_bad:
                         current_bad.add(filename)
                         changed = True
+                        self._update_item_icon(item, True)
                 else:
                     if filename in current_bad:
                         current_bad.remove(filename)
                         changed = True
+                        self._update_item_icon(item, False)
 
             if changed:
                 self._save_to_fix_list(list(current_bad))
-                self.refresh_timeline()
 
         if self.history_manager and self.get_context_cb:
             desc = "Mark Frames 'To Fix'" if is_bad else "Unmark Frames 'To Fix'"

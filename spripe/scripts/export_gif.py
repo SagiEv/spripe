@@ -33,8 +33,13 @@ def export_gif(input_dir, output_path, fps=30, loop=0, progress_callback=None):
             with Image.open(path) as img:
                 if img.mode != "RGBA":
                     img = img.convert("RGBA")
-                # GIF expects palette with transparency for best results via save_all
-                frames.append(img.copy())
+                
+                # Convert to palette mode preserving transparency
+                alpha = img.split()[3]
+                img_p = img.convert("P", palette=Image.ADAPTIVE, colors=255)
+                mask = Image.eval(alpha, lambda a: 255 if a <= 128 else 0)
+                img_p.paste(255, mask)
+                frames.append(img_p)
 
         duration = int(1000 / fps) if fps > 0 else 33
 
@@ -46,7 +51,7 @@ def export_gif(input_dir, output_path, fps=30, loop=0, progress_callback=None):
             duration=duration,
             loop=loop,
             disposal=2,  # Restore to background color for transparency
-            transparency=0,
+            transparency=255,
             optimize=False,
         )
         log(f"GIF exported successfully to {output_path}")
